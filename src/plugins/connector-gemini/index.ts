@@ -48,8 +48,8 @@ const geminiFields: ConnectorField[] = [
     description: '支持：1:1, 3:4, 4:3, 9:16, 16:9'
   },
   {
-    key: 'resolution',
-    label: '分辨率',
+    key: 'imageSize',
+    label: '图片尺寸',
     type: 'select',
     default: '1K',
     options: [
@@ -86,7 +86,7 @@ async function generate(
     model = 'gemini-3-pro-image-preview',
     numberOfImages = 1,
     aspectRatio = '1:1',
-    resolution = '1K',
+    imageSize = '1K',
     timeout = 600
   } = config
 
@@ -142,10 +142,14 @@ async function generate(
       responseModalities: ['IMAGE'],
       imageConfig: {
         aspectRatio: aspectRatio,
-        imageSize: resolution
-      },
-      candidateCount: Number(numberOfImages)
+        imageSize: imageSize
+      }
     }
+  }
+
+  // 如果需要多张图，添加 candidateCount（注意：部分模型可能不支持）
+  if (numberOfImages > 1) {
+    requestBody.generationConfig.candidateCount = Number(numberOfImages)
   }
 
   try {
@@ -219,7 +223,7 @@ const GeminiConnector: ConnectorDefinition = {
       apiUrl,
       model,
       aspectRatio,
-      resolution
+      imageSize
     } = config
 
     return {
@@ -229,7 +233,7 @@ const GeminiConnector: ConnectorDefinition = {
       fileCount: files.length,
       parameters: {
         aspectRatio,
-        resolution
+        imageSize
       }
     }
   }

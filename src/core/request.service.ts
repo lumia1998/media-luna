@@ -84,7 +84,7 @@ export class RequestService {
       }
     }
 
-    const { timeout = 120000, retries = 0 } = options || {}
+    const { timeout = 600000, retries = 0 } = options || {}
 
     // 获取请求日志
     const requestLog = this._getRequestLog(connector, config, files, prompt)
@@ -359,11 +359,17 @@ export function createRequestMiddleware(requestService: RequestService) {
         return Status.STOP
       }
 
+      // 从连接器配置中读取超时时间（秒转毫秒）
+      const timeoutMs = channel.connectorConfig?.timeout
+        ? channel.connectorConfig.timeout * 1000
+        : undefined
+
       const result = await requestService.execute(
         channel.connectorId,
         channel.connectorConfig,
         files,
-        prompt
+        prompt,
+        { timeout: timeoutMs }
       )
 
       if (!result.success) {

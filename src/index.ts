@@ -3,6 +3,7 @@
 import { Context, Logger } from 'koishi'
 import type {} from '@koishijs/plugin-console'
 
+
 import { Config } from './config'
 import { extendDatabase } from './database'
 import { MediaLunaService } from './core'
@@ -30,7 +31,7 @@ export const reusable = false
 
 export const inject = {
   required: ['database', 'http'],
-  optional: ['console']
+  optional: ['console', 'chatluna']
 }
 
 export function apply(ctx: Context, config: Config) {
@@ -68,10 +69,23 @@ export function apply(ctx: Context, config: Config) {
 
     logger.info('Console entry registered')
 
-    // 注册 WebSocket API（使用 inject 确保 mediaLuna 服务可用）
-    ctx.inject(['mediaLuna'], (ctx) => {
-      registerAllApis(ctx)
-      logger.info('Console APIs registered')
+    // 使用入口点插件模式（参考 ChatLuna）
+    // 这样可以确保：
+    // 1. mediaLuna 服务已注册（通过 inject）
+    // 2. 服务已完全初始化（通过 ready 事件和 waitForReady）
+    ctx.plugin({
+      name: 'media-luna-api-entry',
+      inject: ['mediaLuna'],
+      apply: (ctx) => {
+        ctx.on('ready', async () => {
+          // 等待 MediaLuna 服务完全就绪（所有插件加载完成）
+          await ctx.mediaLuna.waitForReady()
+
+          // 注册所有 API
+          registerAllApis(ctx)
+          logger.info('Console APIs registered')
+        })
+      }
     })
   }
 

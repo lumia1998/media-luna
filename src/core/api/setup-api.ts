@@ -38,6 +38,11 @@ export function registerSetupApi(ctx: Context): void {
   // 获取设置状态
   console.addListener('media-luna/setup/status', async function (this: any) {
     try {
+      // 检查 mediaLuna 服务是否就绪
+      if (!ctx.mediaLuna?.pluginLoader) {
+        return { success: false, error: 'MediaLuna service not ready' }
+      }
+
       // 获取存储配置
       const cacheConfig = ctx.mediaLuna.pluginLoader.getPluginConfig('cache') as CachePluginConfig | undefined
       const storageBackend = cacheConfig?.backend || 'local'
@@ -83,6 +88,9 @@ export function registerSetupApi(ctx: Context): void {
   // 获取存储配置字段定义
   console.addListener('media-luna/setup/storage/fields', async () => {
     try {
+      if (!ctx.mediaLuna?.getPluginInfos) {
+        return { success: false, error: 'MediaLuna service not ready' }
+      }
       // 从 cache 插件获取配置字段定义
       const pluginInfo = ctx.mediaLuna.getPluginInfos().find(p => p.id === 'cache')
       if (!pluginInfo) {
@@ -97,6 +105,9 @@ export function registerSetupApi(ctx: Context): void {
   // 获取当前存储配置
   console.addListener('media-luna/setup/storage/get', async () => {
     try {
+      if (!ctx.mediaLuna?.pluginLoader) {
+        return { success: false, error: 'MediaLuna service not ready' }
+      }
       const config = ctx.mediaLuna.pluginLoader.getPluginConfig('cache') as CachePluginConfig | undefined
       return { success: true, data: config || {} }
     } catch (error) {
@@ -107,6 +118,10 @@ export function registerSetupApi(ctx: Context): void {
   // 更新存储配置
   console.addListener('media-luna/setup/storage/update', async (options: Record<string, any>) => {
     try {
+      if (!ctx.mediaLuna?.pluginLoader) {
+        return { success: false, error: 'MediaLuna service not ready' }
+      }
+
       // 验证必要字段
       if (!options.backend) {
         return { success: false, error: 'Storage backend is required' }
@@ -137,6 +152,10 @@ export function registerSetupApi(ctx: Context): void {
   // 生成验证码（WebUI 发起绑定）
   console.addListener('media-luna/setup/verify-code/generate', async ({ uid }: { uid: number }) => {
     try {
+      if (!ctx.mediaLuna?.getService || !ctx.mediaLuna?.pluginLoader) {
+        return { success: false, error: 'MediaLuna service not ready' }
+      }
+
       if (!uid || uid <= 0) {
         return { success: false, error: 'Valid uid is required' }
       }
@@ -167,6 +186,10 @@ export function registerSetupApi(ctx: Context): void {
   // 验证验证码（用户在聊天平台输入后确认）
   console.addListener('media-luna/setup/verify-code/verify', async ({ code, uid }: { code: string, uid: number }) => {
     try {
+      if (!ctx.mediaLuna?.getService) {
+        return { success: false, error: 'MediaLuna service not ready' }
+      }
+
       const authService = ctx.mediaLuna.getService<WebuiAuthService>('webui-auth')
       if (!authService) {
         return { success: false, error: 'WebUI auth service not available' }
@@ -188,6 +211,10 @@ export function registerSetupApi(ctx: Context): void {
   // 直接绑定 UID（跳过验证码，管理员操作）
   console.addListener('media-luna/setup/bind-uid', async ({ uid }: { uid: number }) => {
     try {
+      if (!ctx.mediaLuna?.getService) {
+        return { success: false, error: 'MediaLuna service not ready' }
+      }
+
       if (!uid || uid <= 0) {
         return { success: false, error: 'Valid uid is required' }
       }

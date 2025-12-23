@@ -47,6 +47,11 @@ export interface RemotePresetConfig {
  * MediaLunaService - Media Luna 主服务
  *
  * 提供给其他 Koishi 插件的统一 API
+ *
+ * 采用 ChatLuna 的初始化模式：
+ * - 构造函数中只进行同步初始化
+ * - 异步操作（插件加载）在 ctx.on('ready') 中执行
+ * - 使用 _ready 标记追踪完全初始化状态
  */
 export class MediaLunaService extends Service {
   static inject = ['database']
@@ -67,11 +72,23 @@ export class MediaLunaService extends Service {
   private _serviceRegistry: ServiceRegistry
   private _requestService: RequestService
 
+  // 就绪状态
+  private _ready = false
+  private _readyPromise: Promise<void>
+  private _readyResolve!: () => void
+
   constructor(ctx: Context) {
-    super(ctx, 'mediaLuna', true)
+    // 关键：不传第三个参数（默认为 false），让 Koishi 正常管理服务生命周期
+    super(ctx, 'mediaLuna')
 
     this._logger = ctx.logger('media-luna')
 
+    // 创建 ready promise（用于等待初始化完成）
+    this._readyPromise = new Promise<void>(resolve => {
+      this._readyResolve = resolve
+    })
+
+    // ============ 同步初始化 ============
     // 初始化核心配置和服务注册中心
     this._configService = new ConfigService(ctx, { configDir: 'media-luna' })
     this._serviceRegistry = new ServiceRegistry(ctx)
@@ -114,16 +131,55 @@ export class MediaLunaService extends Service {
     // 注册核心 request 中间件（必须在插件之前）
     this._middlewareRegistry.register(createRequestMiddleware(this._requestService) as any)
 
-    // 注册内置插件
-    this._loadBuiltinPlugins()
-
-    // 加载外部插件（从配置）
-    this._pluginLoader.loadExternalPlugins().catch(e => {
-      this._logger.error('Failed to load external plugins: %s', e)
-    })
-
-    // 注册内置设置面板
+    // 注册内置设置面板（同步）
     this._registerBuiltinSettingsPanels()
+
+    // ============ 异步初始化（在 ready 事件中执行） ============
+    ctx.on('ready', async () => {
+      await this._initialize()
+    })
+  }
+
+  /**
+   * 异步初始化 - 加载所有插件
+   */
+  private async _initialize(): Promise<void> {
+    try {
+      // 加载内置插件
+      await this._loadBuiltinPlugins()
+
+      // 加载外部插件（从配置）
+      await this._pluginLoader.loadExternalPlugins()
+
+      // 标记就绪
+      this._ready = true
+      this._readyResolve()
+
+      // 发出就绪事件
+      this.ctx.emit('media-luna/ready' as any)
+
+      this._logger.info('MediaLuna service fully initialized')
+    } catch (e) {
+      this._logger.error('Failed to initialize MediaLuna: %s', e)
+      // 即使失败也标记就绪，避免死锁
+      this._ready = true
+      this._readyResolve()
+    }
+  }
+
+  /**
+   * 是否完全就绪（所有插件已加载）
+   */
+  get ready(): boolean {
+    return this._ready
+  }
+
+  /**
+   * 等待服务完全就绪
+   */
+  async waitForReady(): Promise<void> {
+    if (this._ready) return
+    return this._readyPromise
   }
 
   // ============ 默认配置 ============
@@ -407,6 +463,7 @@ export class MediaLunaService extends Service {
     files?: import('../types').FileData[]
     session?: import('koishi').Session | null
     uid?: number
+    onPrepareComplete?: (hints: string[]) => Promise<void>
   }): Promise<GenerationResult> {
     const channel = await this._channelService.getByName(options.channelName)
     if (!channel) {
@@ -429,7 +486,8 @@ export class MediaLunaService extends Service {
       files: options.files,
       parameters: options.presetName ? { preset: options.presetName } : {},
       session: options.session,
-      uid: options.uid
+      uid: options.uid,
+      onPrepareComplete: options.onPrepareComplete
     }
 
     return this.generate(request)
@@ -515,6 +573,26 @@ export class MediaLunaService extends Service {
       enabled: mwConfig?.enabled ?? true,
       config: mwConfig?.config || {}
     }
+  }
+
+  /**
+   * 检查插件在指定渠道是否启用
+   * 遵循：全局配置 + 渠道级覆盖 的逻辑
+   *
+   * @param pluginId 插件 ID
+   * @param channel 渠道配置（可选，如果为 null 则只看全局配置）
+   * @returns 是否启用
+   */
+  isPluginEnabledForChannel(pluginId: string, channel: ChannelConfig | null): boolean {
+    // 1. 检查渠道级覆盖（优先级最高）
+    const channelOverride = channel?.pluginOverrides?.[pluginId]?.enabled
+    if (channelOverride !== undefined) {
+      return channelOverride
+    }
+
+    // 2. 检查全局插件配置
+    const pluginConfig = this._configService.get<{ enabled?: boolean }>(`plugin:${pluginId}`, {})
+    return pluginConfig.enabled ?? true  // 默认启用
   }
 
   /** 获取所有中间件配置 */

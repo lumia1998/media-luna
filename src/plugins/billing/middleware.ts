@@ -7,13 +7,52 @@ import type {
   MiddlewareRunStatus
 } from '../../core'
 import type { BillingConfig } from './config'
-import { billingCardFields } from './config'
+import { billingCardFields, defaultBillingConfig } from './config'
 
 // Store keys for passing data between prepare and finalize phases
 const STORE_KEY = 'billing:charged'
 const STORE_AMOUNT_KEY = 'billing:amount'
 const STORE_USER_KEY = 'billing:userId'
 const STORE_CURRENCY_KEY = 'billing:currencyValue'
+
+/**
+ * 渲染消息模板
+ * 支持变量: {cost}, {balance}, {label}, {error}
+ */
+function renderTemplate(
+  template: string,
+  vars: { cost?: number; balance?: number | null; label?: string; error?: string }
+): string {
+  let result = template
+  if (vars.cost !== undefined) {
+    result = result.replace(/\{cost\}/g, String(vars.cost))
+  }
+  if (vars.balance !== undefined && vars.balance !== null) {
+    result = result.replace(/\{balance\}/g, String(vars.balance))
+  } else {
+    // 如果余额为 null，移除包含 {balance} 的部分（如 "，余额 {balance} {label}"）
+    result = result.replace(/[，,]?\s*余额\s*\{balance\}\s*\{label\}/g, '')
+  }
+  if (vars.label !== undefined) {
+    result = result.replace(/\{label\}/g, vars.label)
+  }
+  if (vars.error !== undefined) {
+    result = result.replace(/\{error\}/g, vars.error)
+  }
+  return result
+}
+
+/**
+ * 获取消息模板（带默认值回退）
+ */
+function getMessageTemplate(config: BillingConfig | null, key: keyof BillingConfig): string {
+  const value = config?.[key]
+  if (typeof value === 'string' && value.trim()) {
+    return value
+  }
+  // 回退到默认值
+  return (defaultBillingConfig as any)[key] || ''
+}
 
 /** 获取用户 ID（通过 Koishi binding 表查询） */
 async function resolveUserId(
@@ -174,6 +213,11 @@ export function createBillingPrepareMiddleware(): MiddlewareDefinition {
 
         // 检查余额是否充足
         if (balance < cost) {
+          // 使用配置的余额不足提示模板
+          const insufficientMsg = renderTemplate(
+            getMessageTemplate(config, 'msgInsufficientBalance'),
+            { cost, balance, label: currencyLabel }
+          )
           mctx.setMiddlewareLog('billing-prepare', {
             error: true,
             reason: 'insufficient balance',
@@ -181,7 +225,7 @@ export function createBillingPrepareMiddleware(): MiddlewareDefinition {
             required: cost,
             currency: currencyValue
           })
-          throw new Error(`余额不足：需要 ${cost} ${currencyLabel}，当前余额 ${balance} ${currencyLabel}`)
+          throw new Error(insufficientMsg)
         }
 
         // 扣费
@@ -193,12 +237,20 @@ export function createBillingPrepareMiddleware(): MiddlewareDefinition {
         mctx.store.set(STORE_USER_KEY, userId)
         mctx.store.set(STORE_CURRENCY_KEY, currencyValue)
 
+        // 添加用户提示（生成前）- 使用配置的预扣费提示模板
+        const newBalance = balance - cost
+        const preChargeMsg = renderTemplate(
+          getMessageTemplate(config, 'msgPreCharge'),
+          { cost, balance: newBalance, label: currencyLabel }
+        )
+        mctx.addUserHint(preChargeMsg, 'before')
+
         mctx.setMiddlewareLog('billing-prepare', {
           charged: cost,
           userId,
           currency: currencyValue,
           balanceBefore: balance,
-          balanceAfter: balance - cost
+          balanceAfter: newBalance
         })
 
         return next()
@@ -228,6 +280,7 @@ export function createBillingFinalizeMiddleware(): MiddlewareDefinition {
 
     async execute(mctx: MiddlewareContext, next): Promise<MiddlewareRunStatus> {
       const config = await mctx.getMiddlewareConfig<BillingConfig>('billing')
+      const currencyLabel = config?.currencyLabel || '积分'
 
       // 检查是否已扣费
       const wasCharged = mctx.store.get(STORE_KEY)
@@ -244,22 +297,62 @@ export function createBillingFinalizeMiddleware(): MiddlewareDefinition {
 
       if (isSuccess) {
         // 生成成功，确认扣费
+        // 查询当前余额
+        let currentBalance: number | null = null
+        try {
+          currentBalance = await getBalance(mctx.ctx, config!, storedUserId, currencyValue)
+        } catch (e) {
+          // 查询失败不影响主流程
+        }
+
+        // 使用配置的成功提示模板
+        const successMsg = renderTemplate(
+          getMessageTemplate(config, 'msgSuccess'),
+          { cost: chargedAmount, balance: currentBalance, label: currencyLabel }
+        )
+        mctx.addUserHint(successMsg, 'after')
+
         mctx.setMiddlewareLog('billing-finalize', {
           confirmed: chargedAmount,
           userId: storedUserId,
-          currency: currencyValue
+          currency: currencyValue,
+          currentBalance
         })
       } else if (config?.refundOnFail !== false) {
         // 生成失败且启用了失败退款，执行退款
         try {
           await updateBalance(mctx.ctx, config!, storedUserId, chargedAmount, currencyValue)
+
+          // 查询退款后余额
+          let currentBalance: number | null = null
+          try {
+            currentBalance = await getBalance(mctx.ctx, config!, storedUserId, currencyValue)
+          } catch (e) {
+            // 查询失败不影响主流程
+          }
+
+          // 使用配置的退款提示模板
+          const refundedMsg = renderTemplate(
+            getMessageTemplate(config, 'msgRefunded'),
+            { cost: chargedAmount, balance: currentBalance, label: currencyLabel }
+          )
+          mctx.addUserHint(refundedMsg, 'after')
+
           mctx.setMiddlewareLog('billing-finalize', {
             refunded: chargedAmount,
             reason: 'generation failed',
             userId: storedUserId,
-            currency: currencyValue
+            currency: currencyValue,
+            currentBalance
           })
         } catch (error) {
+          // 使用配置的退款失败提示模板
+          const refundFailedMsg = renderTemplate(
+            getMessageTemplate(config, 'msgRefundFailed'),
+            { error: error instanceof Error ? error.message : '未知错误' }
+          )
+          mctx.addUserHint(refundFailedMsg, 'after')
+
           mctx.setMiddlewareLog('billing-finalize', {
             refundFailed: true,
             amount: chargedAmount,
@@ -267,7 +360,13 @@ export function createBillingFinalizeMiddleware(): MiddlewareDefinition {
           })
         }
       } else {
-        // 生成失败但未启用退款
+        // 生成失败但未启用退款 - 使用配置的不退款提示模板
+        const noRefundMsg = renderTemplate(
+          getMessageTemplate(config, 'msgNoRefund'),
+          { cost: chargedAmount, label: currencyLabel }
+        )
+        mctx.addUserHint(noRefundMsg, 'after')
+
         mctx.setMiddlewareLog('billing-finalize', {
           noRefund: true,
           reason: 'refundOnFail disabled',

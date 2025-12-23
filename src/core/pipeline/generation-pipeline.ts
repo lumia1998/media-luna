@@ -32,6 +32,7 @@ export class GenerationPipeline {
   private _getMiddlewareConfig: (name: string) => Promise<Record<string, any> | null>
   private _isMiddlewareEnabled: (name: string, channel: ChannelConfig | null) => Promise<boolean>
   private _getService: <T>(name: string) => T | undefined
+  private _getMiddleware: (name: string) => MiddlewareDefinition | undefined
 
   constructor(
     ctx: Context,
@@ -42,6 +43,7 @@ export class GenerationPipeline {
       getMiddlewareConfig: (name: string) => Promise<Record<string, any> | null>
       isMiddlewareEnabled: (name: string, channel: ChannelConfig | null) => Promise<boolean>
       getService: <T>(name: string) => T | undefined
+      getMiddleware?: (name: string) => MiddlewareDefinition | undefined
     }
   ) {
     this._ctx = ctx
@@ -51,6 +53,7 @@ export class GenerationPipeline {
     this._getMiddlewareConfig = options.getMiddlewareConfig
     this._isMiddlewareEnabled = options.isMiddlewareEnabled
     this._getService = options.getService
+    this._getMiddleware = options.getMiddleware ?? ((name) => graph.get(name))
   }
 
   /**
@@ -96,10 +99,14 @@ export class GenerationPipeline {
       this._logger.info(`Executing ${levels.length} middleware levels`)
 
       // 逐层执行中间件
+      let preparePhaseCompleted = false
       for (const level of levels) {
         // 跳过 lifecycle-finalize 阶段，稍后单独执行
         const isFinalize = level.every(m => m.phase === 'lifecycle-finalize')
         if (isFinalize) continue
+
+        // 检测当前层是否为 lifecycle-prepare 阶段
+        const isPreparePhase = level.some(m => m.phase === 'lifecycle-prepare')
 
         // 过滤禁用的中间件
         const enabledMiddlewares: MiddlewareDefinition[] = []
@@ -111,9 +118,22 @@ export class GenerationPipeline {
           }
         }
 
-        if (enabledMiddlewares.length === 0) continue
+        if (enabledMiddlewares.length === 0) {
+          // 即使没有中间件执行，也要在 prepare 阶段后调用回调
+          if (isPreparePhase && !preparePhaseCompleted) {
+            preparePhaseCompleted = true
+            await this._callPrepareCompleteCallback(request, context)
+          }
+          continue
+        }
 
         const results = await this._executeLevel(enabledMiddlewares, context)
+
+        // 如果是 lifecycle-prepare 阶段完成后，调用回调通知调用者
+        if (isPreparePhase && !preparePhaseCompleted) {
+          preparePhaseCompleted = true
+          await this._callPrepareCompleteCallback(request, context)
+        }
 
         // 检查是否有停止或错误
         for (const result of results) {
@@ -151,13 +171,18 @@ export class GenerationPipeline {
 
     const duration = Date.now() - startTime
 
+    // 获取用户提示
+    const hints = context.getUserHints()
+    const hasHints = hints.before.length > 0 || hints.after.length > 0
+
     // 如果有错误，返回错误结果
     if (pipelineError) {
       return {
         success: false,
         error: pipelineError.message,
         taskId: context.taskId,
-        duration
+        duration,
+        hints: hasHints ? hints : undefined
       }
     }
 
@@ -167,7 +192,8 @@ export class GenerationPipeline {
       success: true,
       output: context.output ?? [],
       taskId: context.taskId,
-      duration
+      duration,
+      hints: hasHints ? hints : undefined
     }
   }
 
@@ -204,6 +230,7 @@ export class GenerationPipeline {
     channelId: number
   ): Promise<MiddlewareContext> {
     const middlewareLogs: Record<string, any> = {}
+    const userHints: { before: string[]; after: string[] } = { before: [], after: [] }
 
     // 获取渠道配置
     const channel = await this._getChannel(channelId)
@@ -226,20 +253,26 @@ export class GenerationPipeline {
       store: new Map(),
 
       getMiddlewareConfig: async <T>(name: string): Promise<T | null> => {
-        // 获取全局配置
+        // 获取中间件定义以获取 configGroup
+        const middleware = this._getMiddleware(name)
+        const configGroup = (middleware as any)?.configGroup || (middleware as any)?.category || name
+
+        // 获取全局配置（_getMiddlewareConfig 内部已经会处理 configGroup）
         const globalConfig = await this._getMiddlewareConfig(name)
 
-        // 获取渠道级覆盖
-        const channelOverride = channel?.pluginOverrides?.[name]
+        // 获取渠道级覆盖（使用 configGroup 作为键）
+        const channelOverride = channel?.pluginOverrides?.[configGroup]
 
         if (!globalConfig && !channelOverride) {
           return null
         }
 
         // 合并配置（渠道级覆盖优先）
+        // 注意：排除 middlewares 键，它是用于中间件启用状态的
+        const { middlewares: _mw, ...overrideConfig } = channelOverride ?? {}
         return {
           ...(globalConfig ?? {}),
-          ...(channelOverride ?? {})
+          ...overrideConfig
         } as T
       },
 
@@ -251,7 +284,13 @@ export class GenerationPipeline {
 
       getService: <T>(name: string): T | undefined => {
         return this._getService<T>(name)
-      }
+      },
+
+      addUserHint: (hint: string, phase: 'before' | 'after' = 'after') => {
+        userHints[phase].push(hint)
+      },
+
+      getUserHints: () => userHints
     }
 
     return context
@@ -333,6 +372,29 @@ export class GenerationPipeline {
       name: middleware.name,
       status: 'success',
       output
+    }
+  }
+
+  /**
+   * 调用 prepare 阶段完成回调
+   * 将 before hints 传递给调用者，让其决定如何显示
+   */
+  private async _callPrepareCompleteCallback(
+    request: GenerationRequest,
+    context: MiddlewareContext
+  ): Promise<void> {
+    if (!request.onPrepareComplete) return
+
+    const hints = context.getUserHints()
+    if (hints.before.length === 0) return
+
+    try {
+      await request.onPrepareComplete(hints.before)
+      // 清空 before hints，避免在最终结果中重复
+      hints.before.length = 0
+      this._logger.debug('Called onPrepareComplete callback')
+    } catch (e) {
+      this._logger.warn('onPrepareComplete callback failed:', e)
     }
   }
 }

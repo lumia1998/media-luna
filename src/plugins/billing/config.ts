@@ -17,6 +17,14 @@ export interface BillingConfig {
   // 渠道级配置（可在渠道中覆盖）
   cost: number
   currencyValue: string
+
+  // 提示信息模板（支持变量替换）
+  msgPreCharge: string      // 预扣费成功
+  msgInsufficientBalance: string  // 余额不足
+  msgSuccess: string        // 生成成功
+  msgRefunded: string       // 生成失败已退款
+  msgRefundFailed: string   // 退款失败
+  msgNoRefund: string       // 生成失败不退款
 }
 
 /** 计费配置字段 */
@@ -85,6 +93,56 @@ export const billingConfigFields: ConfigField[] = [
     default: 'default',
     placeholder: 'default',
     description: '使用的货币类型值'
+  },
+
+  // 提示信息模板
+  {
+    key: 'msgPreCharge',
+    label: '预扣费提示',
+    type: 'text',
+    default: '已预扣 {cost} {label}，余额 {balance} {label}',
+    placeholder: '已预扣 {cost} {label}，余额 {balance} {label}',
+    description: '预扣费成功时的提示。变量: {cost}费用, {balance}余额, {label}货币名称'
+  },
+  {
+    key: 'msgInsufficientBalance',
+    label: '余额不足提示',
+    type: 'text',
+    default: '余额不足：需要 {cost} {label}，当前余额 {balance} {label}',
+    placeholder: '余额不足：需要 {cost} {label}，当前余额 {balance} {label}',
+    description: '余额不足时的提示。变量: {cost}费用, {balance}余额, {label}货币名称'
+  },
+  {
+    key: 'msgSuccess',
+    label: '成功提示',
+    type: 'text',
+    default: '生成成功，消费 {cost} {label}，余额 {balance} {label}',
+    placeholder: '生成成功，消费 {cost} {label}，余额 {balance} {label}',
+    description: '生成成功时的提示。变量: {cost}费用, {balance}余额, {label}货币名称'
+  },
+  {
+    key: 'msgRefunded',
+    label: '退款提示',
+    type: 'text',
+    default: '生成失败，已退还 {cost} {label}，余额 {balance} {label}',
+    placeholder: '生成失败，已退还 {cost} {label}，余额 {balance} {label}',
+    description: '生成失败退款时的提示。变量: {cost}费用, {balance}余额, {label}货币名称'
+  },
+  {
+    key: 'msgRefundFailed',
+    label: '退款失败提示',
+    type: 'text',
+    default: '生成失败，退款失败：{error}',
+    placeholder: '生成失败，退款失败：{error}',
+    description: '退款失败时的提示。变量: {error}错误信息'
+  },
+  {
+    key: 'msgNoRefund',
+    label: '不退款提示',
+    type: 'text',
+    default: '生成失败，已扣费 {cost} {label}（不退款）',
+    placeholder: '生成失败，已扣费 {cost} {label}（不退款）',
+    description: '生成失败但不退款时的提示。变量: {cost}费用, {label}货币名称'
   }
 ]
 
@@ -116,5 +174,12 @@ export const defaultBillingConfig: BillingConfig = {
   refundOnFail: true,
   currencyLabel: '积分',
   cost: 0,
-  currencyValue: 'default'
+  currencyValue: 'default',
+  // 提示信息模板
+  msgPreCharge: '已预扣 {cost} {label}，余额 {balance} {label}',
+  msgInsufficientBalance: '余额不足：需要 {cost} {label}，当前余额 {balance} {label}',
+  msgSuccess: '生成成功，消费 {cost} {label}，余额 {balance} {label}',
+  msgRefunded: '生成失败，已退还 {cost} {label}，余额 {balance} {label}',
+  msgRefundFailed: '生成失败，退款失败：{error}',
+  msgNoRefund: '生成失败，已扣费 {cost} {label}（不退款）'
 }

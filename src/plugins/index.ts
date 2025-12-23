@@ -22,6 +22,7 @@ import stabilityConnectorPlugin from './connector-stability'
 import sunoConnectorPlugin from './connector-suno'
 import runwayConnectorPlugin from './connector-runway'
 import comfyuiConnectorPlugin from './connector-comfyui'
+import chatlunaConnectorPlugin from './connector-chatluna'
 
 /** 内置插件列表 - 只需在这里维护一次 */
 export const builtinPlugins: PluginDefinition[] = [
@@ -43,7 +44,8 @@ export const builtinPlugins: PluginDefinition[] = [
   stabilityConnectorPlugin,
   sunoConnectorPlugin,
   runwayConnectorPlugin,
-  comfyuiConnectorPlugin
+  comfyuiConnectorPlugin,
+  chatlunaConnectorPlugin
 ]
 
 // 单独导出插件（用于外部引用）
@@ -64,7 +66,8 @@ export {
   stabilityConnectorPlugin,
   sunoConnectorPlugin,
   runwayConnectorPlugin,
-  comfyuiConnectorPlugin
+  comfyuiConnectorPlugin,
+  chatlunaConnectorPlugin
 }
 
 // 导出类型
@@ -75,6 +78,8 @@ export type { TaskPluginConfig } from './task'
 export type { PromptEncodingConfig } from './prompt-encoding'
 export type { WebuiAuthConfig } from './webui-auth'
 export type { KoishiCommandsConfig } from './koishi-commands'
+export type { ChatLunaPluginConfig, ToolConfig, PresetToolConfig } from './connector-chatluna/config'
+export type { ChatLunaPromptEnhanceConfig } from './connector-chatluna/middleware'
 
 // 导出服务
 export { CacheService } from './cache'
@@ -84,3 +89,4 @@ export { WebuiAuthService } from './webui-auth'
 
 // 导出中间件工厂
 export { createPromptEncodingMiddleware } from './prompt-encoding'
+export { createChatLunaPromptEnhanceMiddleware } from './connector-chatluna/middleware'

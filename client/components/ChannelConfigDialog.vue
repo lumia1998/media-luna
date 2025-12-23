@@ -248,12 +248,42 @@
                         </el-select>
                       </template>
 
+                      <!-- Select Remote 类型 -->
+                      <template v-else-if="field.type === 'select-remote'">
+                        <el-select
+                          :model-value="getOverrideValue(plugin.id, field.key)"
+                          @update:model-value="setOverrideValue(plugin.id, field.key, $event)"
+                          :placeholder="`全局: ${plugin.config[field.key] ?? '未设置'}`"
+                          :loading="isRemoteLoading(field)"
+                          clearable
+                          filterable
+                        >
+                          <el-option
+                            v-for="opt in getRemoteOptions(field, plugin)"
+                            :key="String(opt.value)"
+                            :label="opt.label"
+                            :value="opt.value"
+                          />
+                        </el-select>
+                      </template>
+
                       <!-- Number 类型 -->
                       <template v-else-if="field.type === 'number'">
                         <el-input-number
                           :model-value="getOverrideValue(plugin.id, field.key)"
                           @update:model-value="setOverrideValue(plugin.id, field.key, $event)"
                           :placeholder="`全局: ${plugin.config[field.key] ?? ''}`"
+                        />
+                      </template>
+
+                      <!-- Textarea 类型 -->
+                      <template v-else-if="field.type === 'textarea'">
+                        <el-input
+                          :model-value="getOverrideValue(plugin.id, field.key)"
+                          @update:model-value="setOverrideValue(plugin.id, field.key, $event)"
+                          type="textarea"
+                          :rows="3"
+                          :placeholder="`全局: ${plugin.config[field.key] ?? '未设置'}`"
                         />
                       </template>
 
@@ -294,8 +324,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
-import { message } from '@koishijs/client'
+import { ref, computed, watch, onMounted } from 'vue'
+import { message, send } from '@koishijs/client'
 import { ChannelConfig, ConfigField, ConnectorDefinition, MiddlewareInfo, FieldDefinition } from '../types'
 import { channelApi, connectorApi, middlewareApi, pluginApi, PluginInfo } from '../api'
 import TagInput from './TagInput.vue'
@@ -331,6 +361,10 @@ const connectors = ref<ConnectorDefinition[]>([])
 const connectorFields = ref<Record<string, ConfigField[]>>({})
 const allMiddlewares = ref<MiddlewareInfo[]>([])
 const allPlugins = ref<PluginInfo[]>([])
+
+// 远程选项缓存（用于 select-remote 类型字段）
+const remoteOptionsCache = ref<Record<string, { label: string; value: any }[]>>({})
+const remoteOptionsLoading = ref<Record<string, boolean>>({})
 
 // 表单
 const form = ref<Partial<ChannelConfig>>({
@@ -396,6 +430,92 @@ const availableTabs = computed(() => {
 const pluginsWithConfig = computed(() => {
   return allPlugins.value.filter(p => p.configFields && p.configFields.length > 0)
 })
+
+// ============ 远程选项相关方法 ============
+
+// 构建带参数的缓存 key
+const buildCacheKey = (source: string, params?: Record<string, any>) => {
+  if (!params || Object.keys(params).length === 0) {
+    return source
+  }
+  const sortedParams = Object.keys(params).sort().map(k => `${k}=${params[k]}`).join('&')
+  return `${source}?${sortedParams}`
+}
+
+// 获取远程选项（异步）
+const fetchRemoteOptions = async (source: string, params?: Record<string, any>) => {
+  const cacheKey = buildCacheKey(source, params)
+
+  if (remoteOptionsCache.value[cacheKey] || remoteOptionsLoading.value[cacheKey]) {
+    return
+  }
+
+  remoteOptionsLoading.value[cacheKey] = true
+  try {
+    const result = await send(source, params)
+    if (result?.success && Array.isArray(result.data)) {
+      remoteOptionsCache.value[cacheKey] = result.data
+    } else {
+      remoteOptionsCache.value[cacheKey] = []
+    }
+  } catch (e) {
+    console.error(`Failed to fetch options from ${source}:`, e)
+    remoteOptionsCache.value[cacheKey] = []
+  } finally {
+    remoteOptionsLoading.value[cacheKey] = false
+  }
+}
+
+// 获取字段参数（基于 dependsOn 和插件配置）
+const getFieldParams = (field: FieldDefinition, plugin: PluginInfo): Record<string, any> | undefined => {
+  if (!field.dependsOn) return undefined
+  // 优先使用覆盖值，其次使用全局配置
+  const overrideValue = form.value.pluginOverrides?.[plugin.id]?.[field.dependsOn]
+  const globalValue = plugin.config[field.dependsOn]
+  const dependValue = overrideValue !== undefined ? overrideValue : globalValue
+
+  if (dependValue === undefined || dependValue === null || dependValue === '') {
+    return undefined
+  }
+  // 提取 dependsOn 的最后一段作为参数名
+  const paramName = field.dependsOn.includes('.')
+    ? field.dependsOn.split('.').pop()!
+    : field.dependsOn
+  return { [paramName]: dependValue }
+}
+
+// 获取字段的缓存 key
+const getFieldCacheKey = (field: FieldDefinition, plugin: PluginInfo): string => {
+  if (!field.optionsSource) return ''
+  const params = getFieldParams(field, plugin)
+  return buildCacheKey(field.optionsSource, params)
+}
+
+// 获取远程选项（同步访问缓存）
+const getRemoteOptions = (field: FieldDefinition, plugin: PluginInfo) => {
+  const cacheKey = getFieldCacheKey(field, plugin)
+  if (!cacheKey) return []
+
+  // 如果还没加载，触发加载
+  if (!remoteOptionsCache.value[cacheKey] && !remoteOptionsLoading.value[cacheKey]) {
+    const params = getFieldParams(field, plugin)
+    fetchRemoteOptions(field.optionsSource!, params)
+  }
+
+  return remoteOptionsCache.value[cacheKey] || []
+}
+
+// 检查是否正在加载
+const isRemoteLoading = (field: FieldDefinition) => {
+  if (!field.optionsSource) return false
+  // 简单检查，不考虑参数
+  for (const key of Object.keys(remoteOptionsLoading.value)) {
+    if (key.startsWith(field.optionsSource) && remoteOptionsLoading.value[key]) {
+      return true
+    }
+  }
+  return false
+}
 
 // 方法
 const getPhaseMiddlewares = (phaseId: string) => {

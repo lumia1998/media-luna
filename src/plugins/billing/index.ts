@@ -3,6 +3,7 @@
 import { definePlugin } from '../../core'
 import { createBillingPrepareMiddleware, createBillingFinalizeMiddleware } from './middleware'
 import { billingConfigFields, defaultBillingConfig } from './config'
+import { BillingService } from './service'
 
 export default definePlugin({
   id: 'billing',
@@ -15,6 +16,13 @@ export default definePlugin({
     createBillingFinalizeMiddleware()
   ],
 
+  services: [
+    {
+      name: 'billing',
+      factory: (pluginCtx) => new BillingService(pluginCtx)
+    }
+  ],
+
   configFields: billingConfigFields,
   configDefaults: defaultBillingConfig,
 
@@ -23,5 +31,6 @@ export default definePlugin({
   }
 })
 
-// 导出类型
+// 导出类型和服务
 export type { BillingConfig } from './config'
+export { BillingService } from './service'

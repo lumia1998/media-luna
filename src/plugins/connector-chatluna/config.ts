@@ -1,0 +1,204 @@
+// ChatLuna 插件配置
+
+import type { ConfigField, CardField } from '../../core/types'
+import { promptEnhanceConfigFields, defaultPromptEnhanceConfig, type ChatLunaPromptEnhanceConfig } from './middleware'
+
+// ============ 类型定义 ============
+
+/** 返回模式 */
+export type ReturnMode = 'sync' | 'async'
+
+/** 工具配置 */
+export interface ToolConfig {
+  /** 工具名称（英文，无空格） */
+  name: string
+  /** 工具描述（供 AI 理解用途） */
+  description: string
+  /** 是否启用 */
+  enabled: boolean
+  /** 返回模式：sync=等待生成完成后返回，async=立即返回并在后台生成 */
+  returnMode: ReturnMode
+  /** 内置渠道名（如果设置，AI 无法选择渠道） */
+  builtinChannel?: string
+  /** 内置预设名（如果设置，AI 无法选择预设） */
+  builtinPreset?: string
+}
+
+/** 预设工具配置 */
+export interface PresetToolConfig {
+  /** 是否启用预设查看工具 */
+  enabled: boolean
+  /** 工具名称 */
+  name: string
+  /** 工具描述（支持 {presets} 变量） */
+  description: string
+}
+
+/** 插件配置 */
+export interface ChatLunaPluginConfig {
+  /** 是否启用工具注册 */
+  enableTools: boolean
+  /** 工具列表 */
+  tools: ToolConfig[]
+  /** 预设查看工具配置 */
+  presetTool: PresetToolConfig
+  /** 提示词润色配置 */
+  promptEnhance: ChatLunaPromptEnhanceConfig
+}
+
+// ============ 连接器配置字段（渠道级） ============
+
+export const connectorFields: ConfigField[] = [
+  {
+    key: 'platform',
+    label: '适配器',
+    type: 'select-remote',
+    required: false,
+    optionsSource: 'media-luna/chatluna/platforms',
+    placeholder: '可选，用于筛选模型',
+    description: '选择 ChatLuna 适配器来筛选模型列表'
+  },
+  {
+    key: 'model',
+    label: '模型',
+    type: 'select-remote',
+    required: true,
+    optionsSource: 'media-luna/chatluna/models',
+    dependsOn: 'platform',
+    placeholder: '选择模型',
+    description: '选择 ChatLuna 模型（格式: 适配器/模型名）'
+  },
+  {
+    key: 'timeout',
+    label: '超时时间（秒）',
+    type: 'number',
+    default: 300,
+    description: 'API 调用超时时间'
+  }
+]
+
+// ============ 卡片展示字段 ============
+
+export const connectorCardFields: CardField[] = [
+  { source: 'connectorConfig', key: 'model', label: '模型' }
+]
+
+// ============ 插件配置字段（显示在插件配置面板） ============
+
+export const chatlunaConfigFields: ConfigField[] = [
+  {
+    key: 'enableTools',
+    label: '启用工具注册',
+    type: 'boolean',
+    default: false,
+    description: '在 ChatLuna 中注册 Media Luna 工具（供 AI 调用画图）'
+  },
+  {
+    key: 'presetTool.enabled',
+    label: '启用预设查看工具',
+    type: 'boolean',
+    default: true,
+    description: '注册预设查看工具，让 AI 可以查看可用预设列表',
+    showWhen: { field: 'enableTools', value: true }
+  },
+  {
+    key: 'presetTool.name',
+    label: '预设工具名称',
+    type: 'text',
+    default: 'list_presets',
+    placeholder: 'list_presets',
+    description: '预设查看工具的名称',
+    showWhen: { field: 'enableTools', value: true }
+  },
+  {
+    key: 'presetTool.description',
+    label: '预设工具描述',
+    type: 'textarea',
+    default: 'List available presets for image generation. Available presets: {presets}',
+    placeholder: '支持 {presets} 变量',
+    description: '工具描述，{presets} 会被替换为所有预设名',
+    showWhen: { field: 'enableTools', value: true }
+  },
+  {
+    key: 'tools',
+    label: '画图工具列表',
+    type: 'table',
+    default: [],
+    description: '注册到 ChatLuna 的画图工具列表',
+    showWhen: { field: 'enableTools', value: true },
+    columns: [
+      {
+        key: 'enabled',
+        label: '启用',
+        type: 'boolean',
+        width: '60px'
+      },
+      {
+        key: 'name',
+        label: '工具名称',
+        type: 'text',
+        required: true,
+        placeholder: 'draw_image',
+        width: '120px'
+      },
+      {
+        key: 'description',
+        label: '描述',
+        type: 'text',
+        required: true,
+        placeholder: '供 AI 理解工具用途'
+      },
+      {
+        key: 'returnMode',
+        label: '返回模式',
+        type: 'select',
+        options: [
+          { label: '同步（等待完成）', value: 'sync' },
+          { label: '异步（立即返回）', value: 'async' }
+        ],
+        width: '140px'
+      },
+      {
+        key: 'builtinChannel',
+        label: '内置渠道',
+        type: 'text',
+        placeholder: '留空=AI选择',
+        width: '120px'
+      },
+      {
+        key: 'builtinPreset',
+        label: '内置预设',
+        type: 'text',
+        placeholder: '留空=AI选择',
+        width: '120px'
+      }
+    ],
+    tableConfig: {
+      maxRows: 20
+    }
+  },
+  // 提示词润色配置字段（带前缀）
+  ...promptEnhanceConfigFields.map(field => ({
+    ...field,
+    key: `promptEnhance.${field.key}`,
+    showWhen: field.showWhen
+      ? { field: `promptEnhance.${field.showWhen.field}`, value: field.showWhen.value }
+      : undefined,
+    dependsOn: (field as any).dependsOn
+      ? `promptEnhance.${(field as any).dependsOn}`
+      : undefined
+  }))
+]
+
+// ============ 默认配置 ============
+
+export const defaultConfig: ChatLunaPluginConfig = {
+  enableTools: false,
+  tools: [],
+  presetTool: {
+    enabled: true,
+    name: 'list_presets',
+    description: 'List available presets for image generation. Available presets: {presets}'
+  },
+  promptEnhance: defaultPromptEnhanceConfig
+}

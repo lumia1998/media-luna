@@ -396,12 +396,109 @@ export class PluginLoader {
   /**
    * 更新插件配置
    */
-  updatePluginConfig(id: string, config: Record<string, any>): void {
-    if (!this._plugins.has(id)) {
+  async updatePluginConfig(id: string, config: Record<string, any>): Promise<void> {
+    const plugin = this._plugins.get(id)
+    if (!plugin) {
       throw Errors.pluginNotFound(id)
     }
+
     this._configService.update(`plugin:${id}`, config)
     this._logger.info('Plugin config updated: %s', id)
+
+    // 自动重载插件（如果插件定义了 onLoad）
+    if (plugin.definition.onLoad) {
+      await this._reloadPlugin(id)
+    }
+  }
+
+  /**
+   * 重载插件（保持启用状态，重新执行生命周期）
+   */
+  private async _reloadPlugin(id: string): Promise<void> {
+    const plugin = this._plugins.get(id)
+    if (!plugin) return
+
+    this._logger.info('Reloading plugin: %s', id)
+
+    // 1. 执行所有 dispose 回调（包括中间件、连接器、服务的注销）
+    for (const dispose of plugin.disposeCallbacks) {
+      try {
+        dispose()
+      } catch (e) {
+        this._logger.warn('Dispose callback error during reload: %s', e)
+      }
+    }
+    plugin.disposeCallbacks.length = 0
+
+    // 2. 调用 onUnload（如果有）
+    if (plugin.definition.onUnload) {
+      try {
+        await plugin.definition.onUnload()
+      } catch (e) {
+        this._logger.warn('Plugin onUnload error during reload: %s', e)
+      }
+    }
+
+    // 3. 重新注册服务、中间件、连接器
+    const newDisposeCallbacks: Array<() => void> = []
+    const newRegisteredMiddlewares: string[] = []
+    const newRegisteredServices: string[] = []
+
+    try {
+      // 重新注册服务
+      if (plugin.definition.services) {
+        const tempContext = this._createPluginContext(id, newDisposeCallbacks)
+        for (const serviceDef of plugin.definition.services) {
+          const service = serviceDef.factory(tempContext)
+          const dispose = this._serviceRegistry.register(serviceDef.name, service)
+          newDisposeCallbacks.push(dispose)
+          newRegisteredServices.push(serviceDef.name)
+          this._logger.debug('Re-registered service: %s (plugin: %s)', serviceDef.name, id)
+        }
+      }
+
+      // 重新注册中间件
+      if (plugin.definition.middlewares) {
+        for (const middleware of plugin.definition.middlewares) {
+          const dispose = this._middlewareRegistry.register(middleware)
+          newDisposeCallbacks.push(dispose)
+          newRegisteredMiddlewares.push(middleware.name)
+          this._logger.debug('Re-registered middleware: %s (plugin: %s)', middleware.name, id)
+        }
+      }
+
+      // 重新注册连接器
+      if (plugin.definition.connector) {
+        const dispose = this._connectorRegistry.register(plugin.definition.connector)
+        newDisposeCallbacks.push(dispose)
+        this._logger.debug('Re-registered connector: %s (plugin: %s)', plugin.definition.connector.id, id)
+      }
+
+      // 4. 重新创建上下文并调用 onLoad
+      const newContext = this._createPluginContext(id, newDisposeCallbacks)
+
+      if (plugin.definition.onLoad) {
+        await plugin.definition.onLoad(newContext)
+      }
+
+      // 更新插件状态
+      plugin.context = newContext
+      plugin.disposeCallbacks = newDisposeCallbacks
+      plugin.registeredMiddlewares = newRegisteredMiddlewares
+      plugin.registeredServices = newRegisteredServices
+
+      this._logger.info('Plugin reloaded: %s', id)
+    } catch (e) {
+      this._logger.error('Failed to reload plugin %s: %s', id, e)
+      // 回滚已注册的内容
+      for (const dispose of newDisposeCallbacks) {
+        try {
+          dispose()
+        } catch (disposeError) {
+          this._logger.warn('Failed to dispose during rollback: %s', disposeError)
+        }
+      }
+    }
   }
 
   /**

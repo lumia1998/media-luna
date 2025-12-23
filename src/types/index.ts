@@ -125,6 +125,14 @@ export interface MiddlewareContext {
   getMiddlewareLogs(): Record<string, any>
   /** 获取插件服务（推荐使用此方法而非直接访问 ctx.mediaLuna） */
   getService<T>(name: string): T | undefined
+  /**
+   * 添加用户提示（会在生成结果中显示给用户）
+   * @param hint 提示信息
+   * @param phase 阶段：'before' 生成前显示，'after' 生成后显示
+   */
+  addUserHint(hint: string, phase?: 'before' | 'after'): void
+  /** 获取所有用户提示 */
+  getUserHints(): { before: string[]; after: string[] }
 }
 
 /** 中间件执行函数 */
@@ -232,6 +240,8 @@ export interface ConfigField {
   description?: string
   /** 条件显示：当指定字段的值满足条件时才显示 */
   showWhen?: { field: string, value: any }
+  /** 依赖字段（select-remote 时使用）：当依赖字段变化时重新获取选项 */
+  dependsOn?: string
   /** 表格列定义（type='table' 时使用） */
   columns?: TableColumnDefinition[]
   /** 表格配置（type='table' 时使用） */
@@ -370,6 +380,12 @@ export interface GenerationRequest {
   session?: Session | null
   /** 用户 ID（可选，用于计费和记录） */
   uid?: number
+  /**
+   * prepare 阶段完成后的回调
+   * 返回 before hints，调用者可以决定如何显示
+   * 如果提供此回调，pipeline 不会自动发送 before hints
+   */
+  onPrepareComplete?: (hints: string[]) => Promise<void>
 }
 
 /** 生成结果 */
@@ -384,6 +400,13 @@ export interface GenerationResult {
   taskId?: number
   /** 耗时 (毫秒) */
   duration?: number
+  /** 用户提示（由中间件添加） */
+  hints?: {
+    /** 生成前显示的提示 */
+    before: string[]
+    /** 生成后显示的提示 */
+    after: string[]
+  }
 }
 
 // ============ 前端扩展 ============
