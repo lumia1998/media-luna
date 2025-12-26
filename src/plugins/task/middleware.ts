@@ -22,6 +22,29 @@ function getAssetKindFromMime(mime: string): AssetKind {
 }
 
 /**
+ * 清理 OutputAsset，移除 base64 数据以避免数据库膨胀
+ * 如果 URL 是 base64 格式，将其替换为占位符
+ */
+function sanitizeOutputAssets(assets: OutputAsset[] | null | undefined): OutputAsset[] | undefined {
+  if (!assets || assets.length === 0) return undefined
+
+  return assets.map(asset => {
+    // 检查 URL 是否是 base64 格式
+    if (asset.url && asset.url.startsWith('data:')) {
+      return {
+        ...asset,
+        url: '[base64-data-removed]',
+        meta: {
+          ...asset.meta,
+          _originalWasBase64: true
+        }
+      }
+    }
+    return asset
+  })
+}
+
+/**
  * 创建任务记录（开始）中间件
  *
  * 在 lifecycle-prepare 阶段创建任务记录
@@ -55,12 +78,16 @@ export function createTaskRecorderPrepareMiddleware(): MiddlewareDefinition {
 
         // 创建任务记录
         // 如果有已上传的输入文件 URL，使用 URL；否则只保留文件元数据
+        // 注意：需要清理 base64 URL 以避免数据库膨胀
         const inputFiles: OutputAsset[] = inputFileUrls && inputFileUrls.length > 0
           ? inputFileUrls.map((url, i) => ({
               kind: getAssetKindFromMime(context.files[i]?.mime || 'application/octet-stream'),
-              url,
+              url: url.startsWith('data:') ? '[base64-data-removed]' : url,
               mime: context.files[i]?.mime,
-              meta: { filename: context.files[i]?.filename }
+              meta: {
+                filename: context.files[i]?.filename,
+                ...(url.startsWith('data:') ? { _originalWasBase64: true } : {})
+              }
             }))
           : context.files.map(f => ({
               kind: getAssetKindFromMime(f.mime || 'application/octet-stream'),
@@ -151,9 +178,11 @@ export function createTaskRecorderFinalizeMiddleware(): MiddlewareDefinition {
           }
         }
 
-        // 输出快照包含已缓存的 URL（由 storage 中间件处理）
+        // 清理输出快照，移除 base64 数据以避免数据库膨胀
+        const sanitizedOutput = sanitizeOutputAssets(context.output)
+
         await taskService.updateStatus(taskId, status, {
-          responseSnapshot: context.output ?? undefined,
+          responseSnapshot: sanitizedOutput,
           middlewareLogs
         })
       } catch {

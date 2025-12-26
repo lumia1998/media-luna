@@ -56,6 +56,9 @@ export interface RemotePresetConfig {
 export class MediaLunaService extends Service {
   static inject = ['database']
 
+  /** 插件版本号 */
+  readonly version: string
+
   private _logger: Logger
   private _connectorRegistry: ConnectorRegistry
   private _middlewareRegistry: MiddlewareRegistry
@@ -80,6 +83,14 @@ export class MediaLunaService extends Service {
   constructor(ctx: Context) {
     // 关键：不传第三个参数（默认为 false），让 Koishi 正常管理服务生命周期
     super(ctx, 'mediaLuna')
+
+    // 读取插件版本
+    try {
+      const pkg = require('../../package.json')
+      this.version = pkg.version || 'unknown'
+    } catch {
+      this.version = 'unknown'
+    }
 
     this._logger = ctx.logger('media-luna')
 

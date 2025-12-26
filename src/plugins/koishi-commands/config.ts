@@ -12,10 +12,12 @@ export interface KoishiCommandsConfig {
   presetCommand: string
   /** 模型列表指令名称 */
   modelsCommand: string
-  /** 严格标签匹配：预设标签必须匹配渠道标签才能使用 */
-  strictTagMatch: boolean
-  /** 确认超时时间（秒） */
-  confirmTimeout: number
+  /** 我的画图记录指令名称 */
+  myTasksCommand: string
+  /** 任务详情指令名称 */
+  taskDetailCommand: string
+  /** 我的记录默认显示数量 */
+  myTasksDefaultCount: number
   /** 收集模式超时时间（秒） */
   collectTimeout: number
   /** 直接触发所需的最小图片数量 */
@@ -28,8 +30,9 @@ export const defaultKoishiCommandsConfig: KoishiCommandsConfig = {
   presetsCommand: 'presets',
   presetCommand: 'preset',
   modelsCommand: 'models',
-  strictTagMatch: true,
-  confirmTimeout: 30,
+  myTasksCommand: 'mytasks',
+  taskDetailCommand: 'taskinfo',
+  myTasksDefaultCount: 5,
   collectTimeout: 120,
   directTriggerImageCount: 2
 }
@@ -65,18 +68,25 @@ export const koishiCommandsConfigFields: ConfigField[] = [
     description: '查看可用模型（渠道）列表的指令名称'
   },
   {
-    key: 'strictTagMatch',
-    label: '严格标签匹配',
-    type: 'boolean',
-    default: true,
-    description: '启用后，预设标签必须匹配渠道标签才能使用，否则需要用户确认'
+    key: 'myTasksCommand',
+    label: '我的记录指令',
+    type: 'text',
+    default: 'mytasks',
+    description: '查看自己画图记录的指令名称'
   },
   {
-    key: 'confirmTimeout',
-    label: '确认超时（秒）',
+    key: 'taskDetailCommand',
+    label: '任务详情指令',
+    type: 'text',
+    default: 'taskinfo',
+    description: '查看任务详细信息的指令名称'
+  },
+  {
+    key: 'myTasksDefaultCount',
+    label: '默认显示数量',
     type: 'number',
-    default: 30,
-    description: '用户确认操作的超时时间'
+    default: 5,
+    description: '我的记录指令默认显示的任务数量'
   },
   {
     key: 'collectTimeout',

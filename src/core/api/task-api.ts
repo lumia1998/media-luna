@@ -1,6 +1,7 @@
 // 任务管理 API
 
 import { Context } from 'koishi'
+import { Status } from '@satorijs/protocol'
 import type { TaskStatus } from '../../plugins/task'
 import { getUidFromAuth } from './api-utils'
 
@@ -24,6 +25,7 @@ export function registerTaskApi(ctx: Context): void {
     uid?: number
     channelId?: number
     status?: TaskStatus
+    startDate?: string  // ISO date string
     limit?: number
     offset?: number
   } = {}) => {
@@ -35,6 +37,7 @@ export function registerTaskApi(ctx: Context): void {
         uid: options.uid,
         channelId: options.channelId,
         status: options.status,
+        startDate: options.startDate ? new Date(options.startDate) : undefined,
         limit: Math.min(options.limit || 50, 100),
         offset: options.offset || 0
       }
@@ -44,7 +47,8 @@ export function registerTaskApi(ctx: Context): void {
         tasks.count({
           uid: queryOptions.uid,
           channelId: queryOptions.channelId,
-          status: queryOptions.status
+          status: queryOptions.status,
+          startDate: queryOptions.startDate
         })
       ])
 
@@ -95,12 +99,14 @@ export function registerTaskApi(ctx: Context): void {
   })
 
   // 获取任务统计
-  console.addListener('media-luna/tasks/stats', async ({ channelId }: { channelId?: number } = {}) => {
+  console.addListener('media-luna/tasks/stats', async ({ channelId, startDate }: { channelId?: number, startDate?: string } = {}) => {
     try {
       const { tasks, error } = getTaskService()
       if (error) return error
 
-      const queryOptions = channelId ? { channelId } : {}
+      const queryOptions: { channelId?: number, startDate?: Date } = {}
+      if (channelId) queryOptions.channelId = channelId
+      if (startDate) queryOptions.startDate = new Date(startDate)
 
       const [total, pending, processing, success, failed] = await Promise.all([
         tasks.count(queryOptions),
@@ -318,6 +324,78 @@ export function registerTaskApi(ctx: Context): void {
       })
 
       return { success: true, data: result }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+    }
+  })
+
+  // 批量获取用户信息（用于画廊显示）
+  // 注意：头像和用户名存储在平台侧，需要通过 binding 表查找平台账号，再通过 bot 获取
+  console.addListener('media-luna/users/batch', async (options: {
+    uids: number[]
+  }) => {
+    try {
+      const { uids } = options
+      if (!uids || uids.length === 0) {
+        return { success: true, data: {} }
+      }
+
+      // 限制一次最多查询 100 个用户
+      const limitedUids = uids.slice(0, 100)
+
+      // 1. 从 Koishi 用户表获取基本信息
+      const users = await ctx.database.get('user', limitedUids)
+
+      // 2. 获取用户的平台绑定信息
+      const bindings = await ctx.database.get('binding', { aid: limitedUids })
+
+      // 按 aid 分组绑定信息
+      const bindingsByAid = new Map<number, Array<{ platform: string; pid: string }>>()
+      for (const binding of bindings) {
+        if (!bindingsByAid.has(binding.aid)) {
+          bindingsByAid.set(binding.aid, [])
+        }
+        bindingsByAid.get(binding.aid)!.push({ platform: binding.platform, pid: binding.pid })
+      }
+
+      // 3. 构建 uid -> 用户信息 的映射
+      const userMap: Record<number, { name?: string; avatar?: string; platform?: string }> = {}
+
+      for (const user of users) {
+        const userBindings = bindingsByAid.get(user.id) || []
+
+        // 先用数据库中的 name 作为默认值
+        userMap[user.id] = {
+          name: (user as any).name || undefined,
+          avatar: undefined,
+          platform: undefined
+        }
+
+        // 尝试通过 bot 获取平台用户信息
+        for (const binding of userBindings) {
+          try {
+            // 查找对应平台的 bot
+            const bot = ctx.bots.find(b => b.platform === binding.platform && b.status === Status.ONLINE)
+            if (!bot) continue
+
+            // 调用 bot.getUser 获取平台用户信息
+            const platformUser = await bot.getUser(binding.pid)
+            if (platformUser) {
+              userMap[user.id] = {
+                name: platformUser.nick || platformUser.name || userMap[user.id].name,
+                avatar: platformUser.avatar,
+                platform: binding.platform
+              }
+              break // 成功获取到信息，不再尝试其他平台
+            }
+          } catch {
+            // 获取失败，尝试下一个绑定
+            continue
+          }
+        }
+      }
+
+      return { success: true, data: userMap }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
     }

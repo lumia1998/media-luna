@@ -23,6 +23,7 @@ import sunoConnectorPlugin from './connector-suno'
 import runwayConnectorPlugin from './connector-runway'
 import comfyuiConnectorPlugin from './connector-comfyui'
 import chatlunaConnectorPlugin from './connector-chatluna'
+import doubaoConnectorPlugin from './connector-doubao'
 
 /** 内置插件列表 - 只需在这里维护一次 */
 export const builtinPlugins: PluginDefinition[] = [
@@ -45,7 +46,8 @@ export const builtinPlugins: PluginDefinition[] = [
   sunoConnectorPlugin,
   runwayConnectorPlugin,
   comfyuiConnectorPlugin,
-  chatlunaConnectorPlugin
+  chatlunaConnectorPlugin,
+  doubaoConnectorPlugin
 ]
 
 // 单独导出插件（用于外部引用）
@@ -67,7 +69,8 @@ export {
   sunoConnectorPlugin,
   runwayConnectorPlugin,
   comfyuiConnectorPlugin,
-  chatlunaConnectorPlugin
+  chatlunaConnectorPlugin,
+  doubaoConnectorPlugin
 }
 
 // 导出类型

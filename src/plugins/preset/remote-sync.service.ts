@@ -209,7 +209,8 @@ export class RemoteSyncService {
     if (presetData.thumbnailRemote) {
       try {
         const cached = await cache.cacheFromUrl(presetData.thumbnailRemote)
-        result.thumbnail = cache.getUrl(cached.id) || presetData.thumbnailRemote
+        // 直接使用 cached.url，它已经包含正确的存储后端 URL
+        result.thumbnail = cached.url || presetData.thumbnailRemote
         this._logger.debug('Cached thumbnail: %s -> %s', presetData.thumbnailRemote, result.thumbnail)
       } catch (e) {
         this._logger.warn('Failed to cache thumbnail %s: %s', presetData.thumbnailRemote, e)
@@ -228,9 +229,10 @@ export class RemoteSyncService {
     for (const remoteUrl of presetData.referenceImagesRemote || []) {
       try {
         const cached = await cache.cacheFromUrl(remoteUrl)
-        const localUrl = cache.getUrl(cached.id) || remoteUrl
-        cachedReferenceImages.push(localUrl)
-        this._logger.debug('Cached reference image: %s -> %s', remoteUrl, localUrl)
+        // 直接使用 cached.url，它已经包含正确的存储后端 URL
+        const cachedUrl = cached.url || remoteUrl
+        cachedReferenceImages.push(cachedUrl)
+        this._logger.debug('Cached reference image: %s -> %s', remoteUrl, cachedUrl)
       } catch (e) {
         this._logger.warn('Failed to cache reference image %s: %s', remoteUrl, e)
         // 降级使用远程URL

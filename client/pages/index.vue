@@ -7,7 +7,38 @@
     <template v-else>
       <div class="top-nav">
         <div class="nav-container">
-          <div class="logo-area"><span class="logo-text">MEDIA LUNA</span></div>
+          <!-- Logo 区域（左侧） -->
+          <div
+            class="logo-area"
+            @mouseenter="showVersionTooltip = true"
+            @mouseleave="showVersionTooltip = false"
+          >
+            <span class="logo-text">MEDIA LUNA</span>
+            <span class="version-text">v{{ versionInfo.current }}</span>
+            <!-- 版本提示 -->
+            <Transition name="tooltip-fade">
+              <div v-if="showVersionTooltip" class="version-tooltip">
+                <template v-if="versionInfo.hasUpdate">
+                  <span class="tooltip-update">v{{ versionInfo.latest }} 可用</span>
+                </template>
+                <template v-else>
+                  <span class="tooltip-ok">已是最新</span>
+                </template>
+              </div>
+            </Transition>
+            <!-- 更新按钮 -->
+            <div
+              v-if="versionInfo.hasUpdate"
+              class="update-btn"
+              @click="openUpdateLink"
+              title="点击更新"
+            >
+              <svg class="update-icon" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z"/>
+              </svg>
+            </div>
+          </div>
+          <!-- 导航标签（靠右） -->
           <div class="nav-tabs" role="tablist">
             <div
               v-for="item in menuItems"
@@ -35,17 +66,44 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, h } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, h, reactive } from 'vue'
 import ChannelsView from '../components/ChannelsView.vue'
 import PresetsView from '../components/PresetsView.vue'
 import TasksView from '../components/TasksView.vue'
 import GenerateView from '../components/GenerateView.vue'
 import SettingsView from '../components/SettingsView.vue'
 import SetupWizard from '../components/SetupWizard.vue'
-import { setupApi } from '../api'
+import { setupApi, versionApi } from '../api'
 
 const currentView = ref('generate')
 const showSetupWizard = ref(false)
+const showVersionTooltip = ref(false)
+
+// 版本信息
+const versionInfo = reactive({
+  current: '0.0.0',
+  latest: '0.0.0',
+  hasUpdate: false,
+  npmUrl: ''
+})
+
+// 检查版本更新
+const checkVersion = async () => {
+  try {
+    const info = await versionApi.check()
+    versionInfo.current = info.current
+    versionInfo.latest = info.latest
+    versionInfo.hasUpdate = info.hasUpdate
+    versionInfo.npmUrl = info.npmUrl
+  } catch (e) {
+    console.error('Failed to check version:', e)
+  }
+}
+
+// 打开更新链接（跳转到 Koishi 依赖管理页面）
+const openUpdateLink = () => {
+  window.location.href = '/dependencies'
+}
 
 // 检查是否需要显示设置向导
 const checkSetupStatus = async () => {
@@ -98,6 +156,7 @@ function restoreHeader() {
 onMounted(() => {
   hideHeader()
   checkSetupStatus()
+  checkVersion()
 })
 onBeforeUnmount(restoreHeader)
 </script>
@@ -116,16 +175,93 @@ onBeforeUnmount(restoreHeader)
   margin: 0 auto;
   padding: 20px;
   height: calc(100vh - 50px);
-  overflow: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+  overflow: hidden;
+  box-sizing: border-box;
 }
-.main-content::-webkit-scrollbar {
-  width: 0;
-  height: 0;
+.logo-area {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  cursor: default;
 }
-.logo-area .logo-text { font-weight: 600; letter-spacing: .5px; color: var(--k-color-text); white-space: nowrap; }
+
+.logo-area .logo-text {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: var(--k-color-text);
+  white-space: nowrap;
+}
+
+.logo-area .version-text {
+  font-size: 11px;
+  color: var(--k-color-text-description);
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+/* 版本信息悬浮提示 */
+.version-tooltip {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  background: var(--k-card-bg);
+  border: 1px solid var(--k-color-border);
+  border-radius: 6px;
+  padding: 4px 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.tooltip-ok {
+  color: var(--k-color-success, #67c23a);
+}
+
+.tooltip-update {
+  color: var(--k-color-active);
+  font-weight: 500;
+}
+
+/* Tooltip 过渡动画 */
+.tooltip-fade-enter-active,
+.tooltip-fade-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.tooltip-fade-enter-from,
+.tooltip-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+/* 更新按钮 - 箭头样式 */
+.update-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: var(--k-color-active);
+  color: #fff;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(64, 158, 255, 0.4);
+}
+
+.update-btn:hover {
+  transform: scale(1.1);
+  box-shadow: 0 3px 10px rgba(64, 158, 255, 0.5);
+}
+
+.update-icon {
+  width: 14px;
+  height: 14px;
+}
 
 /* Hide default Koishi console headers */
 .app-layout :deep(.k-header),

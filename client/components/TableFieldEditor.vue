@@ -41,43 +41,67 @@
       </div>
     </div>
 
-    <!-- 数据表格 -->
-    <div class="table-wrapper">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th v-if="tableConfig?.enableSelection !== false" class="col-check">
-              <el-checkbox
-                :model-value="isAllSelected"
-                :indeterminate="isIndeterminate"
-                @change="toggleSelectAll"
+    <!-- 卡片列表 -->
+    <div class="card-list">
+      <div
+        v-for="(row, index) in rows"
+        :key="index"
+        class="item-card"
+        :class="{ expanded: expandedIndex === index, selected: selectedRows.includes(index) }"
+      >
+        <!-- 卡片头部（始终显示） -->
+        <div class="card-header" @click="toggleExpand(index)">
+          <div class="header-left">
+            <el-checkbox
+              v-if="tableConfig?.enableSelection !== false"
+              :model-value="selectedRows.includes(index)"
+              @change="toggleRowSelection(index)"
+              @click.stop
+              size="small"
+            />
+            <div class="item-summary">
+              <span class="item-title">{{ getItemTitle(row) }}</span>
+              <span class="item-subtitle">{{ getItemSubtitle(row) }}</span>
+            </div>
+          </div>
+          <div class="header-right">
+            <!-- 关键开关（如 enabled）直接显示 -->
+            <template v-for="col in keyColumns" :key="col.key">
+              <el-switch
+                v-if="col.type === 'boolean'"
+                :model-value="row[col.key]"
+                @update:model-value="updateCell(index, col.key, $event)"
+                @click.stop
                 size="small"
               />
-            </th>
-            <th
-              v-for="col in columns"
-              :key="col.key"
-              :class="['col-' + col.key, { required: col.required }]"
+            </template>
+            <k-icon
+              :name="expandedIndex === index ? 'chevron-up' : 'chevron-down'"
+              class="expand-icon"
+            />
+            <el-button
+              type="danger"
+              size="small"
+              link
+              @click.stop="removeRow(index)"
+              class="delete-btn"
             >
-              {{ col.label }}
-            </th>
-            <th class="col-op">操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="(row, index) in rows"
-            :key="index"
-            :class="{ selected: selectedRows.includes(index) }"
+              <k-icon name="delete" />
+            </el-button>
+          </div>
+        </div>
+
+        <!-- 展开的详情（点击展开时显示） -->
+        <div v-if="expandedIndex === index" class="card-body">
+          <div
+            v-for="col in editableColumns"
+            :key="col.key"
+            class="field-row"
           >
-            <td v-if="tableConfig?.enableSelection !== false" class="col-check">
-              <el-checkbox
-                :model-value="selectedRows.includes(index)"
-                @change="toggleRowSelection(index)"
-                size="small"
-              />
-            </td>
-            <td v-for="col in columns" :key="col.key" :class="'col-' + col.key">
+            <label class="field-label" :class="{ required: col.required }">
+              {{ col.label }}
+            </label>
+            <div class="field-control">
               <el-input
                 v-if="col.type === 'text'"
                 :model-value="row[col.key]"
@@ -113,24 +137,17 @@
                   :value="opt.value"
                 />
               </el-select>
-            </td>
-            <td class="col-op">
-              <el-button type="danger" size="small" link @click="removeRow(index)">
-                删除
-              </el-button>
-            </td>
-          </tr>
-          <!-- 添加行 -->
-          <tr class="add-row" @click="addRow">
-            <td :colspan="totalColumns" class="add-cell">
-              <span class="add-hint">
-                <k-icon name="add" />
-                点击添加一行
-              </span>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+              <div v-if="col.description" class="field-desc">{{ col.description }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 空状态 -->
+      <div v-if="rows.length === 0" class="empty-state">
+        <k-icon name="inbox" />
+        <span>暂无数据，点击上方"添加"按钮创建</span>
+      </div>
     </div>
 
     <!-- 底部统计 -->
@@ -238,14 +255,7 @@ const rows = computed({
 })
 
 const selectedRows = ref<number[]>([])
-const isAllSelected = computed(() => rows.value.length > 0 && selectedRows.value.length === rows.value.length)
-const isIndeterminate = computed(() => selectedRows.value.length > 0 && selectedRows.value.length < rows.value.length)
-
-const totalColumns = computed(() => {
-  let count = props.columns.length + 1 // columns + operation column
-  if (props.tableConfig?.enableSelection !== false) count++ // checkbox column
-  return count
-})
+const expandedIndex = ref<number | null>(null)
 
 const showImportDialog = ref(false)
 const importText = ref('')
@@ -254,6 +264,34 @@ const importMode = ref<'append' | 'replace'>('append')
 const showPresetsDialog = ref(false)
 const selectedPresets = ref<string[]>([])
 const presetSearch = ref('')
+
+// 关键列：布尔类型的 enabled 等字段，直接显示在卡片头部
+const keyColumns = computed(() =>
+  props.columns.filter(col => col.type === 'boolean' && (col.key === 'enabled' || col.key === 'asyncSendStartMessage'))
+)
+
+// 可编辑列：所有列（在展开区域显示）
+const editableColumns = computed(() => props.columns)
+
+// 获取标题列配置
+const titleColumnKey = computed(() => props.tableConfig?.titleColumn || props.columns[0]?.key || 'name')
+const subtitleColumnKey = computed(() => props.tableConfig?.subtitleColumn || props.columns[1]?.key)
+
+// 获取显示标题
+const getItemTitle = (row: Record<string, any>) => {
+  const val = row[titleColumnKey.value]
+  return val || '未命名'
+}
+
+// 获取显示副标题
+const getItemSubtitle = (row: Record<string, any>) => {
+  if (!subtitleColumnKey.value) return ''
+  const val = row[subtitleColumnKey.value]
+  if (typeof val === 'string' && val.length > 60) {
+    return val.substring(0, 60) + '...'
+  }
+  return val || ''
+}
 
 const existingAliases = computed(() => {
   const set = new Set<string>()
@@ -273,12 +311,18 @@ const filteredPresets = computed(() => {
   )
 })
 
+function toggleExpand(index: number) {
+  expandedIndex.value = expandedIndex.value === index ? null : index
+}
+
 function addRow() {
   const newRow: Record<string, any> = {}
   for (const col of props.columns) {
     newRow[col.key] = col.type === 'boolean' ? false : col.type === 'number' ? undefined : ''
   }
   emit('update:modelValue', [...rows.value, newRow])
+  // 自动展开新添加的行
+  expandedIndex.value = rows.value.length
 }
 
 function removeRow(index: number) {
@@ -286,6 +330,11 @@ function removeRow(index: number) {
   arr.splice(index, 1)
   emit('update:modelValue', arr)
   selectedRows.value = selectedRows.value.filter(i => i !== index).map(i => i > index ? i - 1 : i)
+  if (expandedIndex.value === index) {
+    expandedIndex.value = null
+  } else if (expandedIndex.value !== null && expandedIndex.value > index) {
+    expandedIndex.value--
+  }
 }
 
 function updateCell(rowIndex: number, colKey: string, value: any) {
@@ -300,16 +349,13 @@ function toggleRowSelection(index: number) {
   else selectedRows.value.push(index)
 }
 
-function toggleSelectAll(val: boolean) {
-  selectedRows.value = val ? rows.value.map((_, i) => i) : []
-}
-
 function deleteSelected() {
   if (selectedRows.value.length === 0) return
   const toDelete = new Set(selectedRows.value)
   emit('update:modelValue', rows.value.filter((_, i) => !toDelete.has(i)))
   ElMessage.success(`已删除 ${toDelete.size} 条`)
   selectedRows.value = []
+  expandedIndex.value = null
 }
 
 function exportData() {
@@ -383,15 +429,13 @@ watch(showPresetsDialog, (v) => {
 <style scoped>
 .table-field-editor {
   width: 100%;
-  max-width: 100%;
-  overflow: hidden;
 }
 
 .toolbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
   flex-wrap: wrap;
   gap: 8px;
 }
@@ -401,104 +445,164 @@ watch(showPresetsDialog, (v) => {
   gap: 6px;
 }
 
-.table-wrapper {
-  border: 1px solid var(--k-color-border, #dcdfe6);
-  border-radius: 6px;
-  overflow-x: auto;
+/* 卡片列表 */
+.card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.data-table {
-  width: 100%;
-  min-width: 500px;
-  border-collapse: collapse;
-  font-size: 13px;
+.item-card {
+  background: var(--k-card-bg, #fff);
+  border: 1px solid var(--k-color-border, #e4e7ed);
+  border-radius: 8px;
+  transition: all 0.2s;
 }
 
-.data-table th,
-.data-table td {
-  padding: 6px 8px;
-  text-align: left;
-  border-bottom: 1px solid var(--k-color-border, #ebeef5);
-  vertical-align: middle;
+.item-card:hover {
+  border-color: var(--k-color-active, #409eff);
 }
 
-.data-table th {
-  background: var(--k-color-fill, #f5f7fa);
+.item-card.expanded {
+  border-color: var(--k-color-active, #409eff);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.item-card.selected {
+  background: var(--el-color-primary-light-9, #ecf5ff);
+}
+
+/* 卡片头部 */
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.item-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.item-title {
   font-weight: 500;
-  color: var(--k-color-text-secondary, #909399);
-  font-size: 12px;
+  color: var(--k-color-text, #303133);
+  font-size: 14px;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.data-table th.required::after {
+.item-subtitle {
+  font-size: 12px;
+  color: var(--k-color-text-description, #909399);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.expand-icon {
+  color: var(--k-color-text-description, #909399);
+  transition: transform 0.2s;
+}
+
+.delete-btn {
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.item-card:hover .delete-btn {
+  opacity: 1;
+}
+
+/* 卡片内容 */
+.card-body {
+  padding: 12px 16px 16px;
+  border-top: 1px solid var(--k-color-border, #e4e7ed);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.field-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.field-label {
+  width: 100px;
+  flex-shrink: 0;
+  font-size: 13px;
+  color: var(--k-color-text-secondary, #606266);
+  padding-top: 5px;
+  text-align: right;
+}
+
+.field-label.required::after {
   content: '*';
   color: #f56c6c;
   margin-left: 2px;
 }
 
-.data-table tbody tr:hover {
-  background: var(--k-color-fill-light, #f5f7fa);
+.field-control {
+  flex: 1;
+  min-width: 0;
 }
 
-.data-table tbody tr.selected {
-  background: #ecf5ff;
-}
-
-.data-table tbody tr:last-child td {
-  border-bottom: none;
-}
-
-/* 列宽控制 - 使用百分比 */
-.col-check { width: 32px; text-align: center; }
-.col-op { width: 45px; text-align: center; }
-.col-alias { width: 15%; min-width: 70px; }
-.col-repoId { width: 35%; min-width: 120px; }
-.col-triggerWords { width: 25%; min-width: 100px; }
-.col-description { width: 25%; min-width: 100px; }
-
-.data-table :deep(.el-input) {
+.field-control :deep(.el-input),
+.field-control :deep(.el-select) {
   width: 100%;
 }
 
-.data-table :deep(.el-input__wrapper) {
-  padding: 0 8px;
-}
-
-.data-table :deep(.el-input__inner) {
-  height: 28px;
+.field-desc {
   font-size: 12px;
+  color: var(--k-color-text-description, #909399);
+  margin-top: 4px;
 }
 
 .num-input {
   width: 100%;
 }
 
-.empty-tip {
-  padding: 30px;
-  text-align: center;
+/* 空状态 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 40px 20px;
   color: var(--k-color-text-description, #c0c4cc);
   font-size: 13px;
+  background: var(--k-color-fill-light, #fafafa);
+  border: 1px dashed var(--k-color-border, #dcdfe6);
+  border-radius: 8px;
 }
 
-.add-row {
-  cursor: pointer;
-}
-
-.add-row:hover {
-  background: var(--k-color-fill-light, #f5f7fa);
-}
-
-.add-cell {
-  text-align: center;
-  padding: 12px !important;
-}
-
-.add-hint {
-  color: var(--k-color-active, #409eff);
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 13px;
+.empty-state .k-icon {
+  font-size: 24px;
+  opacity: 0.5;
 }
 
 .table-footer {
@@ -542,6 +646,30 @@ watch(showPresetsDialog, (v) => {
   overflow-y: auto;
   border: 1px solid var(--k-color-border, #dcdfe6);
   border-radius: 4px;
+  /* 隐藏式滚动条 */
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.presets-list:hover {
+  scrollbar-color: var(--k-color-border) transparent;
+}
+
+.presets-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.presets-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.presets-list::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 3px;
+}
+
+.presets-list:hover::-webkit-scrollbar-thumb {
+  background-color: var(--k-color-border);
 }
 
 .preset-row {

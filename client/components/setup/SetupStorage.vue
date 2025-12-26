@@ -23,10 +23,30 @@
           <p>选择"不使用"将保留生成服务返回的原始 URL，这些 URL 可能会过期或无法访问。建议配置存储后端以确保图片长期可用。</p>
         </div>
       </div>
+
+      <!-- 测试结果 -->
+      <div v-if="testResult" :class="['test-result', testResult.success ? 'success' : 'error']">
+        <k-icon :name="testResult.success ? 'check-circle' : 'times-circle'" />
+        <div class="test-result-content">
+          <strong>{{ testResult.success ? '连接成功' : '连接失败' }}</strong>
+          <p>{{ testResult.message }}</p>
+          <p v-if="testResult.duration !== undefined" class="test-duration">
+            耗时: {{ testResult.duration }}ms
+          </p>
+        </div>
+      </div>
     </template>
 
     <!-- 操作按钮 -->
     <div class="step-actions">
+      <k-button
+        v-if="localConfig.backend !== 'none'"
+        :loading="testing"
+        :disabled="loading || saving"
+        @click="handleTest"
+      >
+        测试连接
+      </k-button>
       <k-button type="primary" :loading="saving" :disabled="loading" @click="handleNext">
         下一步
       </k-button>
@@ -36,7 +56,7 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted } from 'vue'
-import { setupApi } from '../../api'
+import { setupApi, cacheApi } from '../../api'
 import type { ConfigField } from '../../types'
 import ConfigRenderer from '../ConfigRenderer.vue'
 
@@ -53,6 +73,10 @@ const emit = defineEmits<{
 const loading = ref(true)
 const fields = ref<ConfigField[]>([])
 const localConfig = ref<Record<string, any>>({})
+
+// 测试状态
+const testing = ref(false)
+const testResult = ref<{ success: boolean, message: string, backend?: string, duration?: number } | null>(null)
 
 // 同步 localConfig 到父组件
 watch(localConfig, (newVal) => {
@@ -90,6 +114,32 @@ const loadConfig = async () => {
 
 const handleNext = () => {
   emit('next')
+}
+
+// 测试存储连接
+const handleTest = async () => {
+  testing.value = true
+  testResult.value = null
+  try {
+    // 先保存当前配置
+    await setupApi.updateStorageConfig(localConfig.value)
+
+    // 再测试连接
+    const result = await cacheApi.test()
+    testResult.value = {
+      success: true,
+      message: result.message,
+      backend: result.backend,
+      duration: result.duration
+    }
+  } catch (e: any) {
+    testResult.value = {
+      success: false,
+      message: e.message || '测试失败'
+    }
+  } finally {
+    testing.value = false
+  }
 }
 
 onMounted(loadConfig)
@@ -155,5 +205,48 @@ onMounted(loadConfig)
   border-top: 1px solid var(--k-color-border);
   display: flex;
   justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+/* 测试结果 */
+.test-result {
+  display: flex;
+  gap: 1rem;
+  padding: 1rem;
+  margin-top: 1rem;
+  border-radius: 8px;
+}
+
+.test-result.success {
+  background: color-mix(in srgb, var(--k-color-success) 10%, transparent);
+  border: 1px solid var(--k-color-success);
+  color: var(--k-color-success);
+}
+
+.test-result.error {
+  background: color-mix(in srgb, var(--k-color-danger) 10%, transparent);
+  border: 1px solid var(--k-color-danger);
+  color: var(--k-color-danger);
+}
+
+.test-result-content {
+  flex: 1;
+}
+
+.test-result-content strong {
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.test-result-content p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--k-color-text);
+}
+
+.test-duration {
+  margin-top: 0.25rem !important;
+  color: var(--k-color-text-description) !important;
+  font-size: 0.85rem !important;
 }
 </style>

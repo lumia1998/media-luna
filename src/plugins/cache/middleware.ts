@@ -1,4 +1,5 @@
 // 存储中间件 - 将输入文件和生成结果上传到存储后端
+// 统一通过 CacheService 进行存储操作
 
 import type {
   MiddlewareDefinition,
@@ -6,38 +7,50 @@ import type {
   MiddlewareRunStatus,
   OutputAsset
 } from '../../core'
-import type { StorageConfig, CachePluginConfig } from './config'
 import type { CacheService } from './service'
-import { uploadToS3, uploadToWebDav, getExtensionFromMime, type S3Config, type WebDavConfig } from './utils'
-
-// ============ 配置转换 ============
-
-function toS3Config(config: StorageConfig): S3Config {
-  return {
-    endpoint: config.s3Endpoint,
-    region: config.s3Region,
-    accessKeyId: config.s3AccessKeyId,
-    secretAccessKey: config.s3SecretAccessKey,
-    bucket: config.s3Bucket,
-    publicBaseUrl: config.s3PublicBaseUrl,
-    forcePathStyle: config.s3ForcePathStyle,
-    acl: config.s3Acl
-  }
-}
-
-function toWebDavConfig(config: StorageConfig): WebDavConfig {
-  return {
-    endpoint: config.webdavEndpoint,
-    username: config.webdavUsername,
-    password: config.webdavPassword,
-    basePath: config.webdavBasePath,
-    publicBaseUrl: config.webdavPublicBaseUrl
-  }
-}
+import { getExtensionFromMime } from './utils'
 
 // ============ 工具函数 ============
 
+/**
+ * 解析 base64 data URL
+ */
+function parseBase64DataUrl(dataUrl: string): { buffer: Buffer; mime: string } | null {
+  // 检查格式: data:mime;base64,data
+  if (!dataUrl.startsWith('data:') || !dataUrl.includes(';base64,')) {
+    return null
+  }
+
+  const commaIndex = dataUrl.indexOf(',')
+  if (commaIndex === -1) return null
+
+  // 提取 MIME 类型
+  const mimeStart = 5 // 'data:'.length
+  const mimeEnd = dataUrl.indexOf(';', mimeStart)
+  if (mimeEnd === -1) return null
+
+  const mime = dataUrl.substring(mimeStart, mimeEnd)
+  const base64Data = dataUrl.substring(commaIndex + 1)
+
+  try {
+    const buffer = Buffer.from(base64Data, 'base64')
+    return { buffer, mime }
+  } catch {
+    return null
+  }
+}
+
 async function downloadAsset(url: string): Promise<{ buffer: Buffer; mime: string }> {
+  // 处理 base64 data URL
+  if (url.startsWith('data:')) {
+    const parsed = parseBase64DataUrl(url)
+    if (parsed) {
+      return parsed
+    }
+    throw new Error('无效的 base64 data URL')
+  }
+
+  // 普通 URL，使用 fetch 下载
   const resp = await fetch(url)
   if (!resp.ok) throw new Error(`下载失败: ${resp.status}`)
   const arrayBuffer = await resp.arrayBuffer()
@@ -46,35 +59,24 @@ async function downloadAsset(url: string): Promise<{ buffer: Buffer; mime: strin
 }
 
 /**
- * 上传文件到指定后端
+ * 上传文件到存储后端（通过 CacheService）
  */
 async function uploadToBackend(
   buffer: Buffer,
   filename: string,
   mime: string,
-  config: StorageConfig,
   mctx: MiddlewareContext
 ): Promise<{ url: string; key: string }> {
-  switch (config.backend) {
-    case 'local': {
-      const cacheService = mctx.getService<CacheService>('cache')
-      if (!cacheService) {
-        throw new Error('本地缓存服务不可用')
-      }
-      const cached = await cacheService.cache(buffer, mime, filename)
-      const url = cacheService.getUrl(cached.id)
-      if (!url) {
-        throw new Error('无法获取缓存 URL，请检查 selfUrl 配置')
-      }
-      return { url, key: cached.id }
-    }
-    case 's3':
-      return uploadToS3(buffer, filename, mime, toS3Config(config))
-    case 'webdav':
-      return uploadToWebDav(buffer, filename, mime, toWebDavConfig(config))
-    default:
-      throw new Error(`未知的存储后端: ${config.backend}`)
+  const cacheService = mctx.getService<CacheService>('cache')
+  if (!cacheService) {
+    throw new Error('缓存服务不可用')
   }
+
+  const cached = await cacheService.cache(buffer, mime, filename)
+  if (!cached.url) {
+    throw new Error('无法获取缓存 URL，请检查存储配置')
+  }
+  return { url: cached.url, key: cached.id }
 }
 
 // ============ 中间件定义 ============
@@ -94,25 +96,23 @@ export function createStorageInputMiddleware(): MiddlewareDefinition {
     // 配置在 cache 插件的"扩展插件"面板中设置
 
     async execute(mctx: MiddlewareContext, next): Promise<MiddlewareRunStatus> {
-      // 从中间件配置获取实时配置（而不是 CacheService 的缓存配置）
-      const config = await mctx.getMiddlewareConfig<CachePluginConfig>('cache')
-
-      // 没有配置或禁用时跳过
-      if (!config || !config.enabled) {
-        return next()
-      }
-
-      // 没有文件或配置为 none 时跳过
-      if (!mctx.files || mctx.files.length === 0 || config.backend === 'none') {
-        return next()
-      }
-
+      // 获取缓存服务
       const cacheService = mctx.getService<CacheService>('cache')
-      if (!cacheService && config.backend === 'local') {
-        mctx.setMiddlewareLog('storage-input', { error: '本地缓存服务不可用' })
+      if (!cacheService) {
         return next()
       }
 
+      // 检查服务是否启用
+      if (!cacheService.isEnabled()) {
+        return next()
+      }
+
+      // 没有文件时跳过
+      if (!mctx.files || mctx.files.length === 0) {
+        return next()
+      }
+
+      const backend = cacheService.getBackend()
       const uploadLogs: Array<{ index: number; filename: string; url?: string; error?: string }> = []
       const uploadedUrls: string[] = []
 
@@ -128,7 +128,7 @@ export function createStorageInputMiddleware(): MiddlewareDefinition {
           const ext = getExtensionFromMime(file.mime)
           const filename = `input-${i}${ext}`
 
-          const result = await uploadToBackend(buffer, filename, file.mime, config, mctx)
+          const result = await uploadToBackend(buffer, filename, file.mime, mctx)
 
           uploadedUrls.push(result.url)
           uploadLogs.push({ index: i, filename: file.filename, url: result.url })
@@ -146,7 +146,7 @@ export function createStorageInputMiddleware(): MiddlewareDefinition {
       }
 
       mctx.setMiddlewareLog('storage-input', {
-        backend: config.backend,
+        backend,
         total: mctx.files.length,
         uploaded: uploadLogs.filter(l => l.url).length,
         failed: uploadLogs.filter(l => l.error).length,
@@ -174,25 +174,23 @@ export function createStorageMiddleware(): MiddlewareDefinition {
     // 配置在 cache 插件的"扩展插件"面板中设置
 
     async execute(mctx: MiddlewareContext, next): Promise<MiddlewareRunStatus> {
-      // 从中间件配置获取实时配置（而不是 CacheService 的缓存配置）
-      const config = await mctx.getMiddlewareConfig<CachePluginConfig>('cache')
-
-      // 没有配置或禁用时跳过
-      if (!config || !config.enabled) {
-        return next()
-      }
-
-      // 没有输出或配置为 none 时跳过
-      if (!mctx.output || mctx.output.length === 0 || config.backend === 'none') {
-        return next()
-      }
-
+      // 获取缓存服务
       const cacheService = mctx.getService<CacheService>('cache')
-      if (!cacheService && config.backend === 'local') {
-        mctx.setMiddlewareLog('storage', { error: '本地缓存服务不可用' })
+      if (!cacheService) {
         return next()
       }
 
+      // 检查服务是否启用
+      if (!cacheService.isEnabled()) {
+        return next()
+      }
+
+      // 没有输出时跳过
+      if (!mctx.output || mctx.output.length === 0) {
+        return next()
+      }
+
+      const backend = cacheService.getBackend()
       const uploadedAssets: OutputAsset[] = []
       const uploadLogs: Array<{ index: number; originalUrl: string; newUrl?: string; error?: string }> = []
 
@@ -209,7 +207,7 @@ export function createStorageMiddleware(): MiddlewareDefinition {
           const { buffer, mime } = await downloadAsset(asset.url)
           const filename = `output-${asset.kind}-${i}`
 
-          const result = await uploadToBackend(buffer, filename, mime, config, mctx)
+          const result = await uploadToBackend(buffer, filename, mime, mctx)
 
           const isBase64 = asset.url.startsWith('data:')
           uploadedAssets.push({
@@ -219,7 +217,7 @@ export function createStorageMiddleware(): MiddlewareDefinition {
               ...asset.meta,
               ...(isBase64 ? {} : { originalUrl: asset.url }),
               storageKey: result.key,
-              storageBackend: config.backend
+              storageBackend: backend
             }
           })
 
@@ -242,7 +240,7 @@ export function createStorageMiddleware(): MiddlewareDefinition {
       mctx.output = uploadedAssets
 
       mctx.setMiddlewareLog('storage', {
-        backend: config.backend,
+        backend,
         total: mctx.output.length,
         uploaded: uploadLogs.filter(l => l.newUrl).length,
         failed: uploadLogs.filter(l => l.error).length,

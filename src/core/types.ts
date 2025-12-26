@@ -83,6 +83,10 @@ export interface TableConfig {
   presetsSource?: string
   /** 最大行数 */
   maxRows?: number
+  /** 卡片模式标题列（列 key） */
+  titleColumn?: string
+  /** 卡片模式副标题列（列 key） */
+  subtitleColumn?: string
 }
 
 /** 配置字段定义 */

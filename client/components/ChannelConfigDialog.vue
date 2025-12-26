@@ -780,6 +780,30 @@ watch(() => props.modelValue, async (newVal) => {
   overflow-y: auto;
   padding: 1.5rem;
   background: var(--k-card-bg);
+  /* 隐藏式滚动条 */
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.tab-content:hover {
+  scrollbar-color: var(--k-color-border) transparent;
+}
+
+.tab-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.tab-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tab-content::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 3px;
+}
+
+.tab-content:hover::-webkit-scrollbar-thumb {
+  background-color: var(--k-color-border);
 }
 
 .content-section {

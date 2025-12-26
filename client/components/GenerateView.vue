@@ -1,7 +1,5 @@
 <template>
-  <div class="view-container">
-    <div class="view-content">
-      <div class="generate-layout">
+  <div class="generate-layout">
         <!-- 左侧配置区 -->
         <div class="config-panel">
           <k-card class="config-card">
@@ -59,7 +57,6 @@
                 </div>
                 <!-- 上传按钮 -->
                 <div
-                  v-if="fileList.length < 4"
                   class="upload-trigger"
                   @click="triggerUpload"
                   @dragover.prevent
@@ -75,7 +72,7 @@
                   />
                   <k-icon name="add" class="upload-icon"></k-icon>
                 </div>
-                <div class="upload-tip">点击或拖拽上传，最多 4 张</div>
+                <div class="upload-tip">点击或拖拽上传参考图片</div>
               </div>
             </div>
 
@@ -185,16 +182,12 @@
 
         <!-- 右侧历史画廊 -->
         <HistoryGallery ref="historyGalleryRef" @select="handleHistorySelect" />
-      </div>
-    </div>
 
     <!-- 图片预览弹窗 -->
     <ImageLightbox
       v-model:visible="lightboxVisible"
-      :images="lightboxImages"
+      :task-id="lightboxTaskId"
       :initial-index="lightboxIndex"
-      :prompt="lightboxPrompt"
-      :duration="result?.duration"
     />
   </div>
 </template>
@@ -241,9 +234,8 @@ const presetId = ref<number | undefined>(undefined)
 
 // Lightbox 状态
 const lightboxVisible = ref(false)
-const lightboxImages = ref<string[]>([])
+const lightboxTaskId = ref<number | null>(null)
 const lightboxIndex = ref(0)
-const lightboxPrompt = ref('')  // 存储最终提示词
 
 // 格式化耗时
 const formatElapsedTime = (ms: number) => {
@@ -274,11 +266,8 @@ const stopTimer = () => {
 
 // 打开图片预览
 const openImagePreview = (index: number) => {
-  if (result.value?.output) {
-    // 只获取图片类型的资源
-    lightboxImages.value = result.value.output
-      .filter(a => a.kind === 'image' && a.url)
-      .map(a => a.url!)
+  if (result.value?.taskId) {
+    lightboxTaskId.value = result.value.taskId
     lightboxIndex.value = index
     lightboxVisible.value = true
   }
@@ -334,15 +323,7 @@ const handleDrop = async (e: DragEvent) => {
 
 // 添加文件
 const addFiles = async (files: File[]) => {
-  const remaining = 4 - fileList.value.length
-  if (remaining <= 0) {
-    message.warning('最多上传 4 张图片')
-    return
-  }
-
-  const toAdd = files.slice(0, remaining)
-
-  for (const file of toAdd) {
+  for (const file of files) {
     const url = URL.createObjectURL(file)
     fileList.value.push({
       uid: ++fileUid,
@@ -378,11 +359,6 @@ const removeFile = (index: number) => {
 const fetchTaskResult = async (taskId: number): Promise<GenerationResult | null> => {
   try {
     const task = await taskApi.get(taskId)
-
-    // 获取最终提示词
-    lightboxPrompt.value = (task.middlewareLogs as any)?.preset?.transformedPrompt
-      || task.requestSnapshot?.prompt
-      || ''
 
     if (task.status === 'success' && task.responseSnapshot && task.responseSnapshot.length > 0) {
       return {
@@ -447,20 +423,6 @@ const generate = async () => {
     if (res.success) {
       result.value = res
       historyGalleryRef.value?.refresh()
-
-      // 获取最终提示词
-      if (res.taskId) {
-        try {
-          const task = await taskApi.get(res.taskId)
-          lightboxPrompt.value = (task.middlewareLogs as any)?.preset?.transformedPrompt
-            || task.requestSnapshot?.prompt
-            || ''
-        } catch {
-          lightboxPrompt.value = form.value.prompt
-        }
-      } else {
-        lightboxPrompt.value = form.value.prompt
-      }
     } else {
       // API 返回失败，但可能任务实际成功了，尝试通过 taskId 获取
       if (res.taskId) {
@@ -516,21 +478,6 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.view-container {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.view-content {
-  flex: 1 1 0;
-  min-height: 0;
-  overflow: hidden;
-  padding: 0.5rem;
-}
-
 .generate-layout {
   display: flex;
   gap: 1rem;

@@ -1,29 +1,46 @@
 <template>
   <div class="ml-view-container">
-    <!-- 固定头部区域 -->
-    <div class="ml-view-header">
-      <div class="ml-header-left">
-        <!-- 视图切换 -->
-        <div class="view-mode-switch">
+    <!-- 工具栏 -->
+    <div class="tasks-toolbar">
+      <div class="toolbar-left">
+        <!-- 时间范围切换 -->
+        <div class="btn-group">
           <button
-            class="mode-btn"
+            class="group-btn"
+            :class="{ active: timeRange === 'all' }"
+            @click="setTimeRange('all')"
+          >
+            全部
+          </button>
+          <button
+            class="group-btn"
+            :class="{ active: timeRange === 'today' }"
+            @click="setTimeRange('today')"
+          >
+            今日
+          </button>
+        </div>
+        <!-- 视图切换 -->
+        <div class="btn-group">
+          <button
+            class="group-btn icon-only"
             :class="{ active: viewMode === 'list' }"
             @click="viewMode = 'list'"
             title="列表视图"
           >
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
               <rect x="3" y="4" width="18" height="3" rx="1"/>
               <rect x="3" y="10.5" width="18" height="3" rx="1"/>
               <rect x="3" y="17" width="18" height="3" rx="1"/>
             </svg>
           </button>
           <button
-            class="mode-btn"
+            class="group-btn icon-only"
             :class="{ active: viewMode === 'gallery' }"
             @click="viewMode = 'gallery'"
             title="画廊视图"
           >
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
               <rect x="3" y="3" width="8" height="8" rx="1"/>
               <rect x="13" y="3" width="8" height="8" rx="1"/>
               <rect x="3" y="13" width="8" height="8" rx="1"/>
@@ -32,19 +49,17 @@
           </button>
         </div>
       </div>
-      <div class="ml-header-right">
-        <k-button @click="openCleanupDialog">
-          <template #icon><k-icon name="delete"></k-icon></template>
-          清理记录
-        </k-button>
-        <k-button @click="fetchData">
-          <template #icon><k-icon name="refresh"></k-icon></template>
-          刷新
-        </k-button>
+      <div class="toolbar-right">
+        <button class="toolbar-btn" @click="fetchData">
+          <k-icon name="refresh"></k-icon>
+          <span>刷新</span>
+        </button>
+        <button class="toolbar-btn danger" @click="openCleanupDialog">
+          <k-icon name="delete"></k-icon>
+          <span>清理</span>
+        </button>
       </div>
     </div>
-
-    <!-- 统计信息 (固定) -->
     <div class="stats-grid" v-if="stats">
       <div class="stat-card">
         <div class="stat-icon total"><k-icon name="clipboard-list"></k-icon></div>
@@ -86,14 +101,46 @@
     <!-- 筛选栏 (固定) -->
     <div class="filter-bar">
       <div class="filter-group">
-        <el-select v-model="filter.status" placeholder="所有状态" clearable @change="fetchData" style="width: 140px">
+        <el-select
+          v-model="filter.status"
+          placeholder="所有状态"
+          clearable
+          @change="handleFilterChange"
+          style="width: 120px"
+        >
           <el-option label="等待中" value="pending"></el-option>
           <el-option label="处理中" value="processing"></el-option>
           <el-option label="成功" value="success"></el-option>
           <el-option label="失败" value="failed"></el-option>
         </el-select>
-        <el-input v-model="filter.channelId" placeholder="渠道 ID" clearable @change="fetchData" style="width: 140px"></el-input>
-        <el-input v-model="filter.userId" placeholder="用户 ID" clearable @change="fetchData" style="width: 140px"></el-input>
+        <el-select
+          v-model="filter.channelId"
+          placeholder="所有渠道"
+          clearable
+          @change="handleFilterChange"
+          style="width: 140px"
+        >
+          <el-option
+            v-for="ch in channels"
+            :key="ch.id"
+            :label="ch.name || `渠道 ${ch.id}`"
+            :value="ch.id"
+          ></el-option>
+        </el-select>
+        <el-input
+          v-model="filter.uid"
+          placeholder="用户 UID"
+          clearable
+          @keyup.enter="handleFilterChange"
+          @clear="handleFilterChange"
+          style="width: 120px"
+        >
+          <template #suffix>
+            <span class="filter-search-btn" @click="handleFilterChange" title="搜索">
+              <k-icon name="search"></k-icon>
+            </span>
+          </template>
+        </el-input>
       </div>
       <div class="pagination-info" v-if="total > 0">
         共 {{ total }} 条记录
@@ -146,6 +193,18 @@
               <span class="time-text">{{ formatDate(row.startTime) }}</span>
             </template>
           </el-table-column>
+
+          <el-table-column label="" width="50" align="center">
+            <template #default="{ row }">
+              <span
+                class="delete-btn"
+                title="删除"
+                @click.stop="confirmDeleteTask(row)"
+              >
+                <k-icon name="delete"></k-icon>
+              </span>
+            </template>
+          </el-table-column>
         </el-table>
       </template>
 
@@ -196,16 +255,26 @@
     </div>
 
     <!-- 分页 (固定在底部) -->
-    <div class="pagination">
-      <el-pagination
-        v-model:current-page="page"
-        v-model:page-size="pageSize"
-        :total="total"
-        :page-sizes="[20, 50, 100]"
-        layout="total, sizes, prev, pager, next"
-        @current-change="fetchData"
-        @size-change="fetchData"
-      ></el-pagination>
+    <div class="pagination-bar">
+      <div class="page-size-select">
+        <span class="page-size-label">每页</span>
+        <el-select v-model="pageSize" size="small" @change="handlePageSizeChange" style="width: 70px">
+          <el-option :value="20" label="20" />
+          <el-option :value="50" label="50" />
+          <el-option :value="100" label="100" />
+        </el-select>
+        <span class="page-size-label">条</span>
+      </div>
+      <div class="page-nav">
+        <button class="page-btn" :disabled="page <= 1" @click="goToPage(page - 1)">
+          <k-icon name="chevron-left"></k-icon>
+        </button>
+        <span class="page-info">{{ page }} / {{ totalPages }}</span>
+        <button class="page-btn" :disabled="page >= totalPages" @click="goToPage(page + 1)">
+          <k-icon name="chevron-right"></k-icon>
+        </button>
+      </div>
+      <div class="page-total">共 {{ total }} 条</div>
     </div>
 
     <!-- 任务详情对话框 -->
@@ -221,7 +290,7 @@
             <div class="detail-item"><span class="label">ID:</span> {{ currentTask.id }}</div>
             <div class="detail-item"><span class="label">状态:</span> <StatusBadge :status="currentTask.status" /></div>
             <div class="detail-item"><span class="label">渠道 ID:</span> {{ currentTask.channelId }}</div>
-            <div class="detail-item"><span class="label">用户 ID:</span> {{ currentTask.userId || 'N/A' }}</div>
+            <div class="detail-item"><span class="label">用户 UID:</span> {{ currentTask.uid ?? 'N/A' }}</div>
             <div class="detail-item"><span class="label">创建时间:</span> {{ formatDate(currentTask.startTime) }}</div>
             <div class="detail-item"><span class="label">耗时:</span> {{ formatDuration(currentTask.duration || 0) }}</div>
           </div>
@@ -272,11 +341,8 @@
     <!-- 图片预览弹窗 -->
     <ImageLightbox
       v-model:visible="lightboxVisible"
-      :images="lightboxImages"
+      :task-id="lightboxTaskId"
       :initial-index="lightboxIndex"
-      :prompt="lightboxPrompt"
-      :created-at="lightboxCreatedAt"
-      :duration="lightboxDuration"
     />
 
     <!-- 清理对话框 -->
@@ -300,15 +366,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { message } from '@koishijs/client'
-import { TaskData } from '../types'
-import { taskApi } from '../api'
+import { TaskData, ChannelConfig } from '../types'
+import { taskApi, channelApi } from '../api'
 import StatusBadge from './StatusBadge.vue'
 import ImageLightbox from './ImageLightbox.vue'
 
 // 视图模式
 const viewMode = ref<'list' | 'gallery'>('list')
+
+// 时间范围
+const timeRange = ref<'all' | 'today'>('all')
 
 // 状态
 const loading = ref(false)
@@ -320,10 +389,13 @@ const pageSize = ref(20)
 
 // 筛选
 const filter = ref({
-  status: '',
-  userId: undefined as number | undefined,
+  status: '' as string,
+  uid: '' as string,
   channelId: undefined as number | undefined
 })
+
+// 渠道列表（用于下拉筛选）
+const channels = ref<ChannelConfig[]>([])
 
 // 详情
 const detailVisible = ref(false)
@@ -335,11 +407,8 @@ const currentGalleryItem = ref<GalleryItem | null>(null)
 
 // Lightbox 状态
 const lightboxVisible = ref(false)
-const lightboxImages = ref<string[]>([])
+const lightboxTaskId = ref<number | null>(null)
 const lightboxIndex = ref(0)
-const lightboxPrompt = ref('')
-const lightboxCreatedAt = ref<string | undefined>()
-const lightboxDuration = ref<number | undefined>()
 
 // 清理
 const cleanupVisible = ref(false)
@@ -361,6 +430,7 @@ interface GalleryItem {
   prompt: string
   channelId: number
   createdAt: string
+  uid: number | null
 }
 
 // 从任务列表提取画廊项目
@@ -384,13 +454,48 @@ const galleryItems = computed<GalleryItem[]>(() => {
           url: asset.url,
           prompt: finalPrompt,
           channelId: task.channelId,
-          createdAt: task.startTime
+          createdAt: task.startTime,
+          uid: task.uid
         })
       }
     })
   }
   return items
 })
+
+// 计算总页数
+const totalPages = computed(() => {
+  return Math.max(1, Math.ceil(total.value / pageSize.value))
+})
+
+// 获取今日开始时间（本地时间 00:00:00）
+const getTodayStartDate = (): string => {
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  return today.toISOString()
+}
+
+// 设置时间范围
+const setTimeRange = (range: 'all' | 'today') => {
+  timeRange.value = range
+  page.value = 1  // 切换时间范围时重置到第一页
+  fetchData()
+}
+
+// 筛选变化处理
+const handleFilterChange = () => {
+  page.value = 1  // 筛选变化时重置到第一页
+  fetchData()
+}
+
+// 加载渠道列表
+const loadChannels = async () => {
+  try {
+    channels.value = await channelApi.list()
+  } catch (e) {
+    console.error('Failed to load channels:', e)
+  }
+}
 
 // 方法
 const fetchData = async () => {
@@ -402,20 +507,31 @@ const fetchData = async () => {
       offset: (page.value - 1) * pageSize.value
     }
 
+    // 时间范围过滤
+    if (timeRange.value === 'today') {
+      query.startDate = getTodayStartDate()
+    }
+
     // 只添加有值的筛选条件
     if (filter.value.status) {
       query.status = filter.value.status
     }
-    if (filter.value.userId) {
-      query.userId = Number(filter.value.userId)
+    if (filter.value.uid && filter.value.uid.trim()) {
+      query.uid = Number(filter.value.uid.trim())
     }
-    if (filter.value.channelId) {
-      query.channelId = Number(filter.value.channelId)
+    if (filter.value.channelId !== undefined && filter.value.channelId !== null) {
+      query.channelId = filter.value.channelId
+    }
+
+    // stats 也需要使用相同的时间范围
+    const statsParams: { channelId?: number, startDate?: string } = {}
+    if (timeRange.value === 'today') {
+      statsParams.startDate = getTodayStartDate()
     }
 
     const [listRes, statsRes] = await Promise.all([
       taskApi.list(query),
-      taskApi.stats()
+      taskApi.stats(statsParams)
     ])
 
     tasks.value = listRes.items
@@ -429,18 +545,28 @@ const fetchData = async () => {
   }
 }
 
+const handlePageSizeChange = () => {
+  // 改变每页条数时，重置到第一页
+  page.value = 1
+  fetchData()
+}
+
+const goToPage = (newPage: number) => {
+  if (newPage >= 1 && newPage <= totalPages.value) {
+    page.value = newPage
+    fetchData()
+  }
+}
+
 const openDetailDialog = (task: TaskData) => {
   currentTask.value = task
   detailVisible.value = true
 }
 
 const openGalleryDetail = (item: GalleryItem) => {
-  // 使用 ImageLightbox 而不是 el-dialog
-  lightboxImages.value = [item.url]
-  lightboxIndex.value = 0
-  lightboxPrompt.value = item.prompt
-  lightboxCreatedAt.value = item.createdAt
-  lightboxDuration.value = undefined
+  // 设置 taskId 和当前图片索引，ImageLightbox 会自己获取任务数据
+  lightboxTaskId.value = item.id
+  lightboxIndex.value = item.assetIndex
   lightboxVisible.value = true
 
   // 保留旧逻辑用于兼容
@@ -459,6 +585,18 @@ const confirmCleanup = async () => {
     fetchData()
   } catch (e) {
     message.error('清理失败')
+  }
+}
+
+// 删除单个任务
+const confirmDeleteTask = async (task: TaskData) => {
+  if (!confirm(`确定删除任务 #${task.id} 吗？`)) return
+  try {
+    await taskApi.delete(task.id)
+    message.success('删除成功')
+    fetchData()
+  } catch (e) {
+    message.error('删除失败')
   }
 }
 
@@ -496,6 +634,7 @@ const getFilename = (item: GalleryItem) => {
 
 onMounted(() => {
   fetchData()
+  loadChannels()
 })
 </script>
 
@@ -504,40 +643,90 @@ onMounted(() => {
 
 /* ========== 任务视图特有样式 ========== */
 
-/* 视图模式切换 */
-.view-mode-switch {
+/* 工具栏 */
+.tasks-toolbar {
   display: flex;
-  gap: 2px;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* 按钮组 */
+.btn-group {
+  display: flex;
   background-color: var(--k-color-bg-2);
   border: 1px solid var(--k-color-border);
   border-radius: 6px;
   padding: 2px;
 }
 
-.mode-btn {
+.group-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 28px;
+  padding: 5px 12px;
   border: none;
   background: transparent;
   color: var(--k-color-text-description);
   cursor: pointer;
   border-radius: 4px;
-  transition: all 0.2s ease;
-  font-size: 16px;
+  transition: all 0.15s ease;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
-.mode-btn:hover {
+.group-btn.icon-only {
+  padding: 5px 8px;
+}
+
+.group-btn:hover {
   color: var(--k-color-text);
-  background-color: var(--k-color-bg-1);
 }
 
-.mode-btn.active {
+.group-btn.active {
   color: var(--k-color-active);
   background-color: var(--k-card-bg);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+/* 工具栏按钮 */
+.toolbar-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border: 1px solid var(--k-color-border);
+  background: var(--k-card-bg);
+  color: var(--k-color-text-description);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+  font-size: 13px;
+}
+
+.toolbar-btn:hover {
+  color: var(--k-color-text);
+  border-color: var(--k-color-active);
+}
+
+.toolbar-btn.danger:hover {
+  color: var(--k-color-error);
+  border-color: var(--k-color-error);
 }
 
 /* Stats Grid */
@@ -646,6 +835,21 @@ onMounted(() => {
   font-size: 0.9rem;
 }
 
+/* 筛选搜索按钮 */
+.filter-search-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--k-color-text-description);
+  transition: color 0.15s ease;
+  padding: 2px;
+}
+
+.filter-search-btn:hover {
+  color: var(--k-color-active);
+}
+
 /* Task Table */
 .task-table {
   border: 1px solid var(--k-color-border);
@@ -672,6 +876,24 @@ onMounted(() => {
 .mono-text {
   font-family: monospace;
   color: var(--k-color-text-description);
+}
+
+/* 删除按钮 */
+.delete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  color: var(--k-color-text-description);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.delete-btn:hover {
+  color: var(--k-color-error);
+  background-color: rgba(var(--k-color-error-rgb, 245, 108, 108), 0.1);
 }
 
 .prompt-cell {
@@ -788,14 +1010,72 @@ onMounted(() => {
   opacity: 0.5;
 }
 
-/* Pagination */
-.pagination {
+/* Pagination Bar */
+.pagination-bar {
   flex-shrink: 0;
   margin-top: 1rem;
-  padding-top: 1rem;
+  padding: 0.75rem 1rem;
   display: flex;
+  align-items: center;
   justify-content: center;
+  gap: 2rem;
   border-top: 1px solid var(--k-color-border);
+  background-color: var(--k-card-bg);
+  border-radius: 0 0 8px 8px;
+}
+
+.page-size-select {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.page-size-label {
+  font-size: 0.85rem;
+  color: var(--k-color-text-description);
+}
+
+.page-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.page-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--k-color-border);
+  border-radius: 6px;
+  background-color: var(--k-color-bg-1);
+  color: var(--k-color-text);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.page-btn:hover:not(:disabled) {
+  border-color: var(--k-color-active);
+  color: var(--k-color-active);
+  background-color: var(--k-color-bg-2);
+}
+
+.page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.page-info {
+  font-size: 0.9rem;
+  color: var(--k-color-text);
+  min-width: 60px;
+  text-align: center;
+}
+
+.page-total {
+  font-size: 0.85rem;
+  color: var(--k-color-text-description);
 }
 
 /* Detail Modal Styles */
@@ -958,6 +1238,29 @@ onMounted(() => {
   flex: 1;
   padding: 1rem;
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.sidebar-content:hover {
+  scrollbar-color: var(--k-color-border) transparent;
+}
+
+.sidebar-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-content::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 3px;
+}
+
+.sidebar-content:hover::-webkit-scrollbar-thumb {
+  background-color: var(--k-color-border);
 }
 
 .info-block {

@@ -31,14 +31,14 @@
         </header>
 
         <!-- 功能模块面板 -->
-        <template v-if="currentPanel.component === 'middlewares'">
+        <div v-if="currentPanel.component === 'middlewares'" class="panel-content">
           <MiddlewaresPanel />
-        </template>
+        </div>
 
         <!-- 扩展插件面板 -->
-        <template v-else-if="currentPanel.component === 'plugins'">
+        <div v-else-if="currentPanel.component === 'plugins'" class="panel-content">
           <PluginsPanel />
-        </template>
+        </div>
 
         <!-- 自定义面板 -->
         <template v-else-if="currentPanel.type === 'custom' && currentPanel.configFields">
@@ -178,34 +178,9 @@ onMounted(async () => {
   flex: 1;
   min-width: 0;
   min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  /* 隐藏式滚动条 */
-  scrollbar-width: thin;
-  scrollbar-color: transparent transparent;
-}
-
-.main-content:hover {
-  scrollbar-color: var(--k-color-border) transparent;
-}
-
-/* Webkit 隐藏式滚动条 */
-.main-content::-webkit-scrollbar {
-  width: 6px;
-}
-
-.main-content::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.main-content::-webkit-scrollbar-thumb {
-  background-color: transparent;
-  border-radius: 3px;
-  transition: background-color 0.2s;
-}
-
-.main-content:hover::-webkit-scrollbar-thumb {
-  background-color: var(--k-color-border);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .loading {
@@ -226,6 +201,7 @@ onMounted(async () => {
 }
 
 .panel-header {
+  flex-shrink: 0;
   margin-bottom: 1.5rem;
 }
 
@@ -242,11 +218,72 @@ onMounted(async () => {
   margin: 0;
 }
 
+.panel-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  /* 隐藏式滚动条 */
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.panel-content:hover {
+  scrollbar-color: var(--k-color-border) transparent;
+}
+
+/* Webkit 隐藏式滚动条 */
+.panel-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.panel-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.panel-content::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 3px;
+  transition: background-color 0.2s;
+}
+
+.panel-content:hover::-webkit-scrollbar-thumb {
+  background-color: var(--k-color-border);
+}
+
 .custom-panel {
+  flex: 1;
+  min-height: 0;
   background: var(--k-card-bg);
   border: 1px solid var(--k-color-border);
   border-radius: 12px;
   padding: 1.5rem;
+  overflow-y: auto;
+  /* 隐藏式滚动条 */
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.custom-panel:hover {
+  scrollbar-color: var(--k-color-border) transparent;
+}
+
+/* Webkit 隐藏式滚动条 */
+.custom-panel::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-panel::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 3px;
+  transition: background-color 0.2s;
+}
+
+.custom-panel:hover::-webkit-scrollbar-thumb {
+  background-color: var(--k-color-border);
 }
 
 .actions {

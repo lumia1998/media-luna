@@ -8,7 +8,7 @@ import {
   defaultKoishiCommandsConfig,
   type KoishiCommandsConfig
 } from './config'
-import type { FileData, GenerationResult } from '../../types'
+import type { FileData, GenerationResult, OutputAsset } from '../../types'
 import { h, type Session } from 'koishi'
 
 /** 收集状态 */
@@ -268,6 +268,233 @@ export default definePlugin({
 
       presetCommandDisposables.push(() => modelsCmd.dispose())
 
+      // /mytasks [count] - 查看我的画图记录
+      const myTasksCmd = ctx.command(`${config.myTasksCommand} [count:number]`, '查看我的画图记录')
+        .action(async ({ session }: { session?: Session }, count?: number) => {
+          if (!session) {
+            return '会话不可用'
+          }
+
+          const uid = (session as any)?.user?.id
+          if (!uid) {
+            return '请先登录后再查看记录'
+          }
+
+          const taskService = mediaLunaRef?.tasks
+          const channelService = mediaLunaRef?.channels
+          if (!taskService) {
+            return '任务服务不可用'
+          }
+
+          const limit = count || config.myTasksDefaultCount
+          const tasks = await taskService.query({ uid, limit })
+
+          if (tasks.length === 0) {
+            return '暂无画图记录'
+          }
+
+          // 获取渠道信息用于显示名称
+          const channelMap = new Map<number, string>()
+          if (channelService) {
+            const channels = await channelService.list()
+            for (const ch of channels) {
+              channelMap.set(ch.id, ch.name)
+            }
+          }
+
+          // 构建合并转发消息
+          const forwardMessages: string[] = []
+
+          // 添加标题
+          forwardMessages.push(`<message>📜 我的画图记录（最近 ${tasks.length} 条）</message>`)
+
+          for (const task of tasks) {
+            const lines: string[] = []
+            const channelName = channelMap.get(task.channelId) || `渠道#${task.channelId}`
+            const statusText = task.status === 'success' ? '✅' : task.status === 'failed' ? '❌' : '⏳'
+
+            lines.push(`${statusText} [${task.id}] ${channelName}`)
+            lines.push(`时间: ${new Date(task.startTime).toLocaleString()}`)
+
+            if (task.duration) {
+              lines.push(`耗时: ${formatDuration(task.duration)}`)
+            }
+
+            // 提示词摘要
+            const prompt = task.requestSnapshot?.prompt || ''
+            if (prompt) {
+              const truncated = prompt.length > 50 ? prompt.substring(0, 50) + '...' : prompt
+              lines.push(`提示词: ${truncated}`)
+            }
+
+            // 如果有输出图片，显示第一张
+            if (task.status === 'success' && task.responseSnapshot && task.responseSnapshot.length > 0) {
+              const firstImage = task.responseSnapshot.find((a: OutputAsset) => a.kind === 'image' && a.url)
+              if (firstImage && firstImage.url) {
+                forwardMessages.push(`<message>${lines.join('\n')}\n<image url="${firstImage.url}"/></message>`)
+              } else {
+                forwardMessages.push(`<message>${lines.join('\n')}</message>`)
+              }
+            } else {
+              forwardMessages.push(`<message>${lines.join('\n')}</message>`)
+            }
+          }
+
+          // 添加提示
+          forwardMessages.push(`<message>使用 ${config.taskDetailCommand} <任务ID> 查看详细信息</message>`)
+
+          return `<message forward>${forwardMessages.join('')}</message>`
+        })
+
+      presetCommandDisposables.push(() => myTasksCmd.dispose())
+
+      // /taskinfo <id> - 查看任务详情
+      const taskDetailCmd = ctx.command(`${config.taskDetailCommand} <id:number>`, '查看任务详细信息')
+        .action(async ({ session }: { session?: Session }, id: number) => {
+          if (!id && id !== 0) {
+            return '请指定任务 ID'
+          }
+
+          const taskService = mediaLunaRef?.tasks
+          const channelService = mediaLunaRef?.channels
+          if (!taskService) {
+            return '任务服务不可用'
+          }
+
+          // 确保 id 是数字
+          const taskId = Number(id)
+          if (isNaN(taskId)) {
+            return `无效的任务 ID: ${id}`
+          }
+
+          const task = await taskService.getById(taskId)
+          if (!task) {
+            return `未找到任务 #${taskId}`
+          }
+
+          // 检查权限：只能查看自己的任务（管理员除外）
+          const uid = (session as any)?.user?.id
+          const isAdmin = (session as any)?.user?.authority >= 3
+          if (!isAdmin && task.uid !== uid) {
+            return '无权查看此任务'
+          }
+
+          // 获取渠道名称
+          let channelName = `渠道#${task.channelId}`
+          if (channelService) {
+            const channel = await channelService.getById(task.channelId)
+            if (channel) {
+              channelName = channel.name
+            }
+          }
+
+          const forwardMessages: string[] = []
+
+          // 基本信息
+          const statusText = task.status === 'success' ? '✅ 成功' :
+                             task.status === 'failed' ? '❌ 失败' :
+                             task.status === 'processing' ? '⏳ 处理中' : '🕐 等待中'
+
+          const basicLines: string[] = []
+          basicLines.push('━━━━━━━━━━━━━━')
+          basicLines.push(`📋 任务 #${task.id}`)
+          basicLines.push('━━━━━━━━━━━━━━')
+          basicLines.push(`状态: ${statusText}`)
+          basicLines.push(`渠道: ${channelName}`)
+          basicLines.push(`开始时间: ${new Date(task.startTime).toLocaleString()}`)
+          if (task.endTime) {
+            basicLines.push(`结束时间: ${new Date(task.endTime).toLocaleString()}`)
+          }
+          if (task.duration) {
+            basicLines.push(`耗时: ${formatDuration(task.duration)}`)
+          }
+          basicLines.push('━━━━━━━━━━━━━━')
+
+          forwardMessages.push(`<message>${basicLines.join('\n')}</message>`)
+
+          // 请求信息
+          const request = task.requestSnapshot
+          if (request) {
+            const reqLines: string[] = []
+            reqLines.push('📝 请求信息')
+            reqLines.push('─────────────')
+
+            if (request.prompt) {
+              reqLines.push(`提示词: ${request.prompt}`)
+            }
+
+            // 检查预设
+            const presetName = request.parameters?.preset
+            if (presetName) {
+              reqLines.push(`预设: ${presetName}`)
+            }
+
+            // 检查中间件处理后的提示词
+            const transformedPrompt = (task.middlewareLogs as any)?.preset?.transformedPrompt
+            if (transformedPrompt && transformedPrompt !== request.prompt) {
+              reqLines.push(`处理后: ${transformedPrompt}`)
+            }
+
+            // 输入文件数量
+            if (request.files && request.files.length > 0) {
+              reqLines.push(`输入文件: ${request.files.length} 个`)
+            }
+
+            forwardMessages.push(`<message>${reqLines.join('\n')}</message>`)
+
+            // 显示输入的参考图片（如果有缓存的 URL）
+            const inputFiles = (request as any).inputFiles as OutputAsset[] | undefined
+            if (inputFiles && inputFiles.length > 0) {
+              forwardMessages.push(`<message>📥 输入图片 (${inputFiles.length} 个)</message>`)
+              for (const file of inputFiles) {
+                if (file.kind === 'image' && file.url) {
+                  forwardMessages.push(`<message><image url="${file.url}"/></message>`)
+                }
+              }
+            }
+          }
+
+          // 输出结果
+          if (task.status === 'success' && task.responseSnapshot && task.responseSnapshot.length > 0) {
+            forwardMessages.push(`<message>🎨 输出结果 (${task.responseSnapshot.length} 个)</message>`)
+
+            for (const asset of task.responseSnapshot) {
+              if (asset.kind === 'image' && asset.url) {
+                forwardMessages.push(`<message><image url="${asset.url}"/></message>`)
+              } else if (asset.kind === 'video' && asset.url) {
+                forwardMessages.push(`<message><video url="${asset.url}"/></message>`)
+              } else if (asset.kind === 'audio' && asset.url) {
+                forwardMessages.push(`<message><audio url="${asset.url}"/></message>`)
+              } else if (asset.kind === 'text' && asset.content) {
+                forwardMessages.push(`<message>文本: ${asset.content}</message>`)
+              }
+            }
+          } else if (task.status === 'failed') {
+            const errorInfo = (task.middlewareLogs as any)?._error
+            const errorMsg = errorInfo?.message || '未知错误'
+            forwardMessages.push(`<message>❌ 错误信息: ${errorMsg}</message>`)
+          }
+
+          // 中间件日志（如果有 billing 信息）
+          const billingLog = (task.middlewareLogs as any)?.billing
+          if (billingLog) {
+            const billingLines: string[] = []
+            billingLines.push('💰 计费信息')
+            billingLines.push('─────────────')
+            if (billingLog.cost !== undefined) {
+              billingLines.push(`消费: ${billingLog.cost}`)
+            }
+            if (billingLog.balance !== undefined) {
+              billingLines.push(`余额: ${billingLog.balance}`)
+            }
+            forwardMessages.push(`<message>${billingLines.join('\n')}</message>`)
+          }
+
+          return `<message forward>${forwardMessages.join('')}</message>`
+        })
+
+      presetCommandDisposables.push(() => taskDetailCmd.dispose())
+
       logger.info('Preset query commands registered')
     }
 
@@ -379,7 +606,7 @@ function registerChannelCommand(
       // 判断是否直接触发
       if (state.files.length >= config.directTriggerImageCount) {
         // 图片数量足够，直接生成
-        return executeGenerateWithPresetCheck(ctx, session, channel, state, presetNamesLower, presetNameMap, config, mediaLuna)
+        return executeGenerateWithPresetCheck(ctx, session, channel, state, presetNamesLower, presetNameMap, mediaLuna)
       }
 
       // 进入收集模式
@@ -425,23 +652,33 @@ class MessageExtractor {
   async extractMedia(session: Session | undefined): Promise<void> {
     if (!session?.elements) return
 
+    // 调试：打印消息结构
+    this.logger.debug('Message elements: %s', JSON.stringify(session.elements, null, 2))
+    if (session.quote) {
+      this.logger.debug('Quote message: %s', JSON.stringify(session.quote, null, 2))
+    }
+
     // 提取图片
     await this.extractImages(session.elements)
 
     // 提取 at 用户头像
     await this.extractAtAvatars(session)
 
-    // 提取引用消息中的图片
-    await this.extractFromQuote(session.elements)
+    // 提取引用消息中的图片（包括 session.quote）
+    await this.extractFromQuote(session)
+
+    this.logger.debug('Extracted files count: %d, urls: %s', this.state.files.length, [...this.state.processedUrls].join(', '))
   }
 
   /**
-   * 从元素数组中提取图片
+   * 从元素数组中提取图片（排除引用中的图片）
    */
   async extractImages(elements: any[]): Promise<void> {
-    const imageElements = h.select(elements, 'img,image')
-    for (const img of imageElements) {
-      await this.fetchImage(img.attrs?.src || img.attrs?.url, 'input')
+    // 只提取顶层图片，排除 quote 内的图片（避免重复）
+    for (const el of elements) {
+      if (el.type === 'img' || el.type === 'image') {
+        await this.fetchImage(el.attrs?.src || el.attrs?.url, 'input')
+      }
     }
   }
 
@@ -471,16 +708,36 @@ class MessageExtractor {
 
   /**
    * 从引用消息中提取图片
+   * 支持两种情况：
+   * 1. session.elements 中的 quote 元素（内嵌引用）
+   * 2. session.quote 属性（独立的被引用消息）
    */
-  async extractFromQuote(elements: any[]): Promise<void> {
-    const quoteElements = h.select(elements, 'quote')
-    for (const quote of quoteElements) {
-      if (quote.children && quote.children.length > 0) {
-        const quoteImages = h.select(quote.children, 'img,image')
-        for (const img of quoteImages) {
-          await this.fetchImage(img.attrs?.src || img.attrs?.url, 'quote')
+  async extractFromQuote(session: Session): Promise<void> {
+    // 1. 从 session.elements 中查找 quote 元素
+    if (session.elements) {
+      for (const el of session.elements) {
+        if (el.type === 'quote' && el.children && el.children.length > 0) {
+          for (const child of el.children) {
+            if (child.type === 'img' || child.type === 'image') {
+              await this.fetchImage(child.attrs?.src || child.attrs?.url, 'quote')
+            }
+          }
         }
       }
+    }
+
+    // 2. 从 session.quote 中提取图片（被引用消息的内容）
+    const quote = session.quote as any
+    if (quote?.elements) {
+      this.logger.debug('Extracting from session.quote.elements')
+      for (const el of quote.elements) {
+        if (el.type === 'img' || el.type === 'image') {
+          await this.fetchImage(el.attrs?.src || el.attrs?.url, 'quote')
+        }
+      }
+    } else if (quote?.content) {
+      // 有些平台可能只有 content 字符串，尝试解析
+      this.logger.debug('Quote has content but no elements: %s', quote.content)
     }
   }
 
@@ -536,7 +793,6 @@ async function executeGenerateWithPresetCheck(
   state: CollectState,
   presetNamesLower: Set<string>,
   presetNameMap: Map<string, string>,
-  config: KoishiCommandsConfig,
   mediaLuna: any
 ): Promise<string> {
   // 合并所有提示词
@@ -552,29 +808,6 @@ async function executeGenerateWithPresetCheck(
     if (presetNamesLower.has(firstWord)) {
       presetName = presetNameMap.get(firstWord)
       actualPrompt = words.slice(1).join(' ')
-    }
-  }
-
-  // 严格标签匹配检查
-  if (config.strictTagMatch && presetName) {
-    const presetService = mediaLuna?.presets
-    if (presetService) {
-      const presetData = await presetService.getByName(presetName)
-      if (presetData) {
-        const channelTags = channel.tags || []
-        const presetTags = presetData.tags || []
-        const hasMatch = channelTags.length === 0 ||
-          presetTags.some((t: string) => channelTags.includes(t))
-
-        if (!hasMatch) {
-          await session?.send(`该模型类别不支持预设「${presetName}」，输入"确认"继续，输入其他取消`)
-          const confirmInput = await session?.prompt(config.confirmTimeout * 1000)
-
-          if (confirmInput?.trim() !== '确认') {
-            return '已取消'
-          }
-        }
-      }
     }
   }
 
@@ -630,6 +863,8 @@ async function enterCollectMode(
   // 使用 Promise 来等待收集完成
   return new Promise<string>((resolve) => {
     let disposed = false
+    // 防止同一消息被多次处理（QQ 平台可能对同一消息发送多个事件）
+    const processedMessageIds = new Set<string>()
 
     // 超时处理
     const timeoutHandle = setTimeout(async () => {
@@ -642,10 +877,22 @@ async function enterCollectMode(
 
     // 注册中间件来捕获消息
     const disposeMiddleware = ctx.middleware(async (sess: Session, next: () => Promise<void>) => {
-      // 只处理同一用户、同一频道的消息
+      // 只处理同一用户、同一频道、同一 bot 的消息
       if (disposed) return next()
       if (sess.userId !== session.userId) return next()
       if (sess.channelId !== session.channelId) return next()
+      // 关键：只处理同一 bot 的消息（多 bot 场景下避免重复处理）
+      if (sess.selfId !== session.selfId) return next()
+
+      // 检查消息是否已处理过（防止重复处理）
+      const messageId = sess.messageId
+      if (messageId && processedMessageIds.has(messageId)) {
+        logger.debug('Skipping already processed message: %s', messageId)
+        return  // 不调用 next()，阻止继续传播
+      }
+      if (messageId) {
+        processedMessageIds.add(messageId)
+      }
 
       // 提取文本
       const textContent = extractor.extractText(sess.elements || []).toLowerCase()
@@ -667,7 +914,7 @@ async function enterCollectMode(
         // 开始生成（带预设检查）
         const result = await executeGenerateWithPresetCheck(
           ctx, session, channel, state,
-          presetNamesLower, presetNameMap, config, mediaLuna
+          presetNamesLower, presetNameMap, mediaLuna
         )
         resolve(result)
         return
@@ -787,20 +1034,22 @@ async function executeGenerate(
 function formatResult(result: GenerationResult): string {
   const messages: string[] = []
 
-  // before hints 已通过 onPrepareComplete 回调与状态消息合并发送，不需要再显示
-
-  // 添加生成后提示（来自中间件，如 billing 结算）
-  if (result.hints?.after && result.hints.after.length > 0) {
-    messages.push(result.hints.after.join('\n'))
+  // 任务 ID 放在最开始
+  if (result.taskId) {
+    messages.push(`[${result.taskId}]`)
   }
 
   if (!result.success) {
     messages.push(`生成失败: ${result.error || '未知错误'}`)
+    // 底部信息
+    appendFooterInfo(messages, result)
     return messages.join('\n')
   }
 
   if (!result.output || result.output.length === 0) {
-    messages.push('生成完成，但没有输出')
+    messages.push(`生成完成，但没有输出`)
+    // 底部信息
+    appendFooterInfo(messages, result)
     return messages.join('\n')
   }
 
@@ -815,7 +1064,43 @@ function formatResult(result: GenerationResult): string {
     }
   }
 
+  // 底部信息
+  appendFooterInfo(messages, result)
+
   return messages.join('\n')
+}
+
+/**
+ * 添加底部信息（耗时、计费等）
+ */
+function appendFooterInfo(messages: string[], result: GenerationResult): void {
+  const footerParts: string[] = []
+
+  // 耗时
+  if (result.duration) {
+    footerParts.push(`耗时 ${formatDuration(result.duration)}`)
+  }
+
+  // 计费信息（来自中间件）
+  if (result.hints?.after && result.hints.after.length > 0) {
+    footerParts.push(...result.hints.after)
+  }
+
+  if (footerParts.length > 0) {
+    messages.push(footerParts.join(' | '))
+  }
+}
+
+/**
+ * 格式化耗时
+ */
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${ms}ms`
+  const seconds = ms / 1000
+  if (seconds < 60) return `${seconds.toFixed(1)}s`
+  const minutes = Math.floor(seconds / 60)
+  const remainingSeconds = (seconds % 60).toFixed(0)
+  return `${minutes}m ${remainingSeconds}s`
 }
 
 // 导出类型

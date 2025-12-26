@@ -23,11 +23,18 @@
   height: 100%;
   overflow-y: auto;
   padding: 1.5rem;
+  /* 隐藏式滚动条 */
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
 }
 
-/* 自定义滚动条 */
+.scroll-content:hover {
+  scrollbar-color: var(--k-color-border) transparent;
+}
+
+/* Webkit 隐藏式滚动条 */
 .scroll-content::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
 }
 
 .scroll-content::-webkit-scrollbar-track {
@@ -35,8 +42,13 @@
 }
 
 .scroll-content::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 3px;
+  transition: background-color 0.2s;
+}
+
+.scroll-content:hover::-webkit-scrollbar-thumb {
   background-color: var(--k-color-border);
-  border-radius: 4px;
 }
 
 .scroll-content::-webkit-scrollbar-thumb:hover {

@@ -1,0 +1,192 @@
+// Gemini 连接器
+
+import { Context } from 'koishi'
+import type { ConnectorDefinition, FileData, OutputAsset, ConnectorRequestLog } from '../../core'
+import { connectorFields, connectorCardFields } from './config'
+
+/** Gemini 生成函数 */
+async function generate(
+  ctx: Context,
+  config: Record<string, any>,
+  files: FileData[],
+  prompt: string
+): Promise<OutputAsset[]> {
+  const {
+    apiUrl = 'https://generativelanguage.googleapis.com',
+    apiKey,
+    model,
+    numberOfImages,
+    aspectRatio,
+    imageSize,
+    enableGoogleSearch,
+    timeout = 600
+  } = config
+
+  if (!model) {
+    throw new Error('模型未配置')
+  }
+
+  // 构建完整 API Endpoint
+  const baseUrl = apiUrl.replace(/\/$/, '')
+  // 如果用户填写了带 /v1beta 的路径，则直接使用
+  // 否则根据模型名称自动拼接路径
+  const version = 'v1beta'
+  const endpointBase = baseUrl.includes(`/${version}`)
+    ? baseUrl
+    : `${baseUrl}/${version}`
+
+  const endpoint = `${endpointBase}/models/${model}:generateContent?key=${apiKey}`
+
+  // 构建请求体
+  const parts: any[] = []
+
+  // 添加输入图片（Gemini 格式：inlineData）
+  for (const file of files) {
+    if (file.data) {
+      // 将 ArrayBuffer 转换为 base64
+      let base64Data: string
+      if (typeof file.data === 'string') {
+        // 已经是 base64
+        base64Data = file.data
+      } else {
+        // ArrayBuffer 转 base64
+        const buffer = Buffer.from(file.data)
+        base64Data = buffer.toString('base64')
+      }
+
+      parts.push({
+        inlineData: {
+          mimeType: file.mime || 'image/png',
+          data: base64Data
+        }
+      })
+    }
+  }
+
+  // 添加文本提示
+  parts.push({
+    text: prompt
+  })
+
+  const requestBody: any = {
+    contents: [
+      {
+        parts
+      }
+    ],
+    generationConfig: {
+      responseModalities: ['IMAGE']
+    }
+  }
+
+  // 仅在配置了值时才添加 imageConfig
+  const imageConfig: Record<string, any> = {}
+  if (aspectRatio) imageConfig.aspectRatio = aspectRatio
+  if (imageSize) imageConfig.imageSize = imageSize
+  if (Object.keys(imageConfig).length > 0) {
+    requestBody.generationConfig.imageConfig = imageConfig
+  }
+
+  // 如果需要多张图，添加 candidateCount（注意：部分模型可能不支持）
+  if (numberOfImages !== undefined && numberOfImages !== null && numberOfImages > 1) {
+    requestBody.generationConfig.candidateCount = Number(numberOfImages)
+  }
+
+  // 启用谷歌搜索
+  if (enableGoogleSearch) {
+    requestBody.tools = [{ google_search: {} }]
+  }
+
+  try {
+    const response = await ctx.http.post(endpoint, requestBody, {
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      timeout: timeout * 1000
+    })
+
+    const assets: OutputAsset[] = []
+    const candidates = response.candidates || []
+
+    for (const candidate of candidates) {
+      const parts = candidate.content?.parts || []
+
+      for (const part of parts) {
+        // 处理内联图片数据
+        if (part.inlineData) {
+          const mimeType = part.inlineData.mimeType || 'image/png'
+          const base64Data = part.inlineData.data
+
+          assets.push({
+            kind: 'image',
+            url: `data:${mimeType};base64,${base64Data}`,
+            mime: mimeType,
+            meta: {
+              model,
+              aspectRatio
+            }
+          })
+        }
+      }
+    }
+
+    if (assets.length === 0) {
+      // 检查是否有文本错误信息
+      const textParts = candidates.flatMap((c: any) => c.content?.parts || [])
+        .filter((p: any) => p.text)
+        .map((p: any) => p.text)
+
+      if (textParts.length > 0) {
+        throw new Error(`Gemini API returned text instead of image: ${textParts.join('\n')}`)
+      }
+
+      throw new Error('No image generated in response')
+    }
+
+    return assets
+
+  } catch (error) {
+    if (error instanceof Error) {
+      throw new Error(`Gemini API error: ${error.message}`)
+    }
+    throw error
+  }
+}
+
+/** Gemini 连接器定义 */
+export const GeminiConnector: ConnectorDefinition = {
+  id: 'gemini-v3',
+  name: 'Google Gemini 3',
+  supportedTypes: ['image'],
+  fields: connectorFields,
+  cardFields: connectorCardFields,
+  generate,
+
+  /** 获取请求日志 */
+  getRequestLog(config, files, prompt): ConnectorRequestLog {
+    const {
+      apiUrl,
+      model,
+      numberOfImages,
+      aspectRatio,
+      imageSize,
+      enableGoogleSearch
+    } = config
+
+    const parameters: Record<string, any> = {}
+    if (numberOfImages !== undefined && numberOfImages !== null && numberOfImages > 1) {
+      parameters.numberOfImages = Number(numberOfImages)
+    }
+    if (aspectRatio) parameters.aspectRatio = aspectRatio
+    if (imageSize) parameters.imageSize = imageSize
+    if (enableGoogleSearch) parameters.googleSearch = true
+
+    return {
+      endpoint: apiUrl?.split('?')[0] || 'generativelanguage.googleapis.com',
+      model,
+      prompt,
+      fileCount: files.length,
+      parameters
+    }
+  }
+}

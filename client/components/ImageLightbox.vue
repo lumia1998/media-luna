@@ -11,21 +11,28 @@
                 <k-icon name="times"></k-icon>
               </button>
 
-              <!-- 多图时的导航 -->
-              <button v-if="images.length > 1" class="nav-btn prev" @click.stop="prevImage" title="上一张">
-                <k-icon name="chevron-left"></k-icon>
-              </button>
-
-              <img :src="currentImage" class="lightbox-image" alt="Preview" />
-
-              <button v-if="images.length > 1" class="nav-btn next" @click.stop="nextImage" title="下一张">
-                <k-icon name="chevron-right"></k-icon>
-              </button>
-
-              <!-- 图片计数器 -->
-              <div v-if="images.length > 1" class="image-counter">
-                {{ currentIndex + 1 }} / {{ images.length }}
+              <!-- 加载中 -->
+              <div v-if="loading" class="loading-state">
+                <k-icon name="sync" class="spin"></k-icon>
               </div>
+
+              <template v-else>
+                <!-- 多图时的导航 -->
+                <button v-if="imageList.length > 1" class="nav-btn prev" @click.stop="prevImage" title="上一张">
+                  <k-icon name="chevron-left"></k-icon>
+                </button>
+
+                <img :src="currentImage" class="lightbox-image" alt="Preview" />
+
+                <button v-if="imageList.length > 1" class="nav-btn next" @click.stop="nextImage" title="下一张">
+                  <k-icon name="chevron-right"></k-icon>
+                </button>
+
+                <!-- 图片计数器 -->
+                <div v-if="imageList.length > 1" class="image-counter">
+                  {{ currentIndex + 1 }} / {{ imageList.length }}
+                </div>
+              </template>
             </div>
 
             <!-- 右侧信息栏 -->
@@ -38,33 +45,66 @@
               </div>
 
               <div class="sidebar-body">
+                <!-- 创建者（仅在 taskId 模式下显示） -->
+                <div class="info-block" v-if="isTaskIdMode">
+                  <div class="block-header">
+                    <span>创建者</span>
+                  </div>
+                  <div class="user-info" v-if="taskData?.uid">
+                    <img
+                      v-if="userInfo?.avatar"
+                      :src="userInfo.avatar"
+                      class="user-avatar"
+                      @error="($event.target as HTMLImageElement).style.display = 'none'"
+                    />
+                    <div v-else class="user-avatar-placeholder">
+                      <k-icon name="user"></k-icon>
+                    </div>
+                    <span class="user-name">{{ userInfo?.name || `UID: ${taskData.uid}` }}</span>
+                  </div>
+                  <div class="user-info" v-else>
+                    <div class="user-avatar-placeholder">
+                      <k-icon name="user"></k-icon>
+                    </div>
+                    <span class="user-name">匿名用户</span>
+                  </div>
+                </div>
+
                 <!-- 提示词 -->
                 <div class="info-block">
                   <div class="block-header">
                     <span>提示词</span>
-                    <button v-if="prompt" class="copy-btn" @click="copyPrompt">
+                    <button v-if="displayPrompt" class="copy-btn" @click="copyPrompt">
                       复制
                     </button>
                   </div>
-                  <div class="prompt-content" :class="{ empty: !prompt }">
-                    {{ prompt || '无提示词' }}
+                  <div class="prompt-content" :class="{ empty: !displayPrompt }">
+                    {{ displayPrompt || '无提示词' }}
                   </div>
                 </div>
 
                 <!-- 创建时间 -->
-                <div class="info-block" v-if="createdAt">
+                <div class="info-block" v-if="displayCreatedAt">
                   <div class="block-header">
                     <span>创建时间</span>
                   </div>
-                  <div class="info-value">{{ formatDate(createdAt) }}</div>
+                  <div class="info-value">{{ formatDate(displayCreatedAt) }}</div>
                 </div>
 
                 <!-- 生成耗时 -->
-                <div class="info-block" v-if="duration">
+                <div class="info-block" v-if="displayDuration">
                   <div class="block-header">
                     <span>生成耗时</span>
                   </div>
-                  <div class="info-value">{{ formatDuration(duration) }}</div>
+                  <div class="info-value">{{ formatDuration(displayDuration) }}</div>
+                </div>
+
+                <!-- 渠道 -->
+                <div class="info-block" v-if="taskData?.channelId">
+                  <div class="block-header">
+                    <span>渠道</span>
+                  </div>
+                  <div class="info-value">ID: {{ taskData.channelId }}</div>
                 </div>
               </div>
 
@@ -89,14 +129,20 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { message } from '@koishijs/client'
+import { taskApi, userApi } from '../api'
+import type { TaskData } from '../types'
 
 interface Props {
   visible: boolean
-  images: string[]
-  initialIndex?: number
+  // 模式1: 传入 taskId，组件自己获取数据
+  taskId?: number | null
+  // 模式2: 直接传入数据（用于 GenerateView 等场景）
+  images?: string[]
   prompt?: string
-  createdAt?: Date | string
   duration?: number
+  createdAt?: Date | string
+  // 通用选项
+  initialIndex?: number
   showSidebar?: boolean
 }
 
@@ -110,17 +156,112 @@ const emit = defineEmits<{
   (e: 'close'): void
 }>()
 
+// 状态
+const loading = ref(false)
+const taskData = ref<TaskData | null>(null)
+const userInfo = ref<{ name?: string; avatar?: string; platform?: string } | null>(null)
 const currentIndex = ref(props.initialIndex)
 
-const currentImage = computed(() => props.images[currentIndex.value] || '')
+// 判断是否使用 taskId 模式
+const isTaskIdMode = computed(() => !!props.taskId && !props.images?.length)
 
-// 监听 visible 变化，重置索引
+// 计算属性：图片列表（支持两种模式）
+const imageList = computed<string[]>(() => {
+  // 直接传入 images 时优先使用
+  if (props.images?.length) {
+    return props.images
+  }
+  // 否则从任务数据中提取
+  if (!taskData.value?.responseSnapshot) return []
+  return taskData.value.responseSnapshot
+    .filter(asset => (asset.kind === 'image' || asset.kind === 'video') && asset.url)
+    .map(asset => asset.url!)
+})
+
+const currentImage = computed(() => imageList.value[currentIndex.value] || '')
+
+// 显示的提示词（支持两种模式）
+const displayPrompt = computed(() => {
+  // 直接传入 prompt 时优先使用
+  if (props.prompt !== undefined) {
+    return props.prompt
+  }
+  // 否则从任务数据中提取
+  if (!taskData.value) return ''
+  const logs = taskData.value.middlewareLogs as any
+  return logs?.preset?.transformedPrompt
+    || taskData.value.requestSnapshot?.prompt
+    || ''
+})
+
+// 显示的持续时间（支持两种模式）
+const displayDuration = computed(() => {
+  if (props.duration !== undefined) {
+    return props.duration
+  }
+  return taskData.value?.duration || null
+})
+
+// 显示的创建时间（支持两种模式）
+const displayCreatedAt = computed(() => {
+  if (props.createdAt) {
+    return props.createdAt
+  }
+  return taskData.value?.startTime || null
+})
+
+// 获取任务数据
+const fetchTaskData = async () => {
+  if (!props.taskId) {
+    taskData.value = null
+    return
+  }
+
+  loading.value = true
+  try {
+    console.log('[ImageLightbox] Fetching task data for taskId:', props.taskId)
+    const result = await taskApi.get(props.taskId)
+    console.log('[ImageLightbox] Task data:', result)
+    console.log('[ImageLightbox] Task uid:', result?.uid)
+    taskData.value = result
+
+    // 获取用户信息
+    if (result?.uid) {
+      console.log('[ImageLightbox] Fetching user info for uid:', result.uid)
+      const userResult = await userApi.batch([result.uid])
+      console.log('[ImageLightbox] User result:', userResult)
+      userInfo.value = userResult[result.uid] || null
+      console.log('[ImageLightbox] User info:', userInfo.value)
+    } else {
+      console.log('[ImageLightbox] No uid in task data')
+      userInfo.value = null
+    }
+  } catch (e) {
+    console.error('Failed to fetch task data:', e)
+    taskData.value = null
+  } finally {
+    loading.value = false
+  }
+}
+
+// 监听 visible 变化
 watch(() => props.visible, (val) => {
   if (val) {
     currentIndex.value = props.initialIndex
     document.body.style.overflow = 'hidden'
+    // 只在 taskId 模式下获取数据
+    if (isTaskIdMode.value) {
+      fetchTaskData()
+    }
   } else {
     document.body.style.overflow = ''
+  }
+})
+
+// 监听 taskId 变化
+watch(() => props.taskId, () => {
+  if (props.visible && isTaskIdMode.value) {
+    fetchTaskData()
   }
 })
 
@@ -135,16 +276,16 @@ const close = () => {
 }
 
 const prevImage = () => {
-  currentIndex.value = (currentIndex.value - 1 + props.images.length) % props.images.length
+  currentIndex.value = (currentIndex.value - 1 + imageList.value.length) % imageList.value.length
 }
 
 const nextImage = () => {
-  currentIndex.value = (currentIndex.value + 1) % props.images.length
+  currentIndex.value = (currentIndex.value + 1) % imageList.value.length
 }
 
 const copyPrompt = () => {
-  if (props.prompt) {
-    navigator.clipboard.writeText(props.prompt)
+  if (displayPrompt.value) {
+    navigator.clipboard.writeText(displayPrompt.value)
     message.success('已复制提示词')
   }
 }
@@ -240,6 +381,19 @@ onUnmounted(() => {
   max-height: 100%;
   object-fit: contain;
   display: block;
+}
+
+.loading-state {
+  color: white;
+  font-size: 2rem;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 /* 关闭按钮 - 图片区域左上角 */
@@ -360,6 +514,30 @@ onUnmounted(() => {
   flex: 1;
   overflow-y: auto;
   padding: 16px;
+  /* 隐藏式滚动条 */
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.sidebar-body:hover {
+  scrollbar-color: var(--k-color-border) transparent;
+}
+
+.sidebar-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-body::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 3px;
+}
+
+.sidebar-body:hover::-webkit-scrollbar-thumb {
+  background-color: var(--k-color-border);
 }
 
 .info-block {
@@ -419,6 +597,42 @@ onUnmounted(() => {
 .info-value {
   font-size: 0.85rem;
   color: var(--k-color-text);
+}
+
+/* 用户信息 */
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--k-color-bg-2);
+  border-radius: 6px;
+}
+
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.user-avatar-placeholder {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--k-color-bg-1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--k-color-text-description);
+  flex-shrink: 0;
+}
+
+.user-name {
+  font-size: 0.9rem;
+  color: var(--k-color-text);
+  font-weight: 500;
 }
 
 .sidebar-footer {

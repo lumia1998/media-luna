@@ -2,11 +2,69 @@
 
 import { Context } from 'koishi'
 
+// 包信息
+const PACKAGE_NAME = 'koishi-plugin-media-luna'
+
+/**
+ * 比较语义化版本号
+ * @returns 正数表示 v1 > v2，负数表示 v1 < v2，0 表示相等
+ */
+function compareVersions(v1: string, v2: string): number {
+  const parts1 = v1.split('.').map(Number)
+  const parts2 = v2.split('.').map(Number)
+  const len = Math.max(parts1.length, parts2.length)
+
+  for (let i = 0; i < len; i++) {
+    const p1 = parts1[i] || 0
+    const p2 = parts2[i] || 0
+    if (p1 !== p2) return p1 - p2
+  }
+  return 0
+}
+
 /**
  * 注册设置面板 API
  */
 export function registerSettingsApi(ctx: Context): void {
   const console = ctx.console as any
+
+  // 获取版本信息
+  console.addListener('media-luna/version/check', async () => {
+    try {
+      // 从服务获取当前版本
+      const currentVersion = ctx.mediaLuna?.version || 'unknown'
+
+      // 从 npm registry 获取最新版本
+      let latestVersion = currentVersion
+      let hasUpdate = false
+
+      try {
+        const response = await ctx.http.get(`https://registry.npmmirror.com/${PACKAGE_NAME}/latest`, {
+          timeout: 5000
+        })
+        if (response?.version) {
+          latestVersion = response.version
+          hasUpdate = compareVersions(latestVersion, currentVersion) > 0
+        }
+      } catch (e) {
+        // 网络错误时不报错，只返回当前版本
+        ctx.logger('media-luna').debug('Failed to check latest version:', e)
+      }
+
+      return {
+        success: true,
+        data: {
+          current: currentVersion,
+          latest: latestVersion,
+          hasUpdate,
+          packageName: PACKAGE_NAME,
+          npmUrl: `https://www.npmjs.com/package/${PACKAGE_NAME}`
+        }
+      }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+    }
+  })
 
   // 获取所有设置面板
   console.addListener('media-luna/settings/panels', async () => {

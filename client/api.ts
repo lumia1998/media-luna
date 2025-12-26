@@ -75,16 +75,23 @@ export const presetApi = {
 
 // 任务 API
 export const taskApi = {
-  list: (params?: { userId?: number, channelId?: number, status?: string, limit?: number, offset?: number }) =>
+  list: (params?: { uid?: number, channelId?: number, status?: string, startDate?: string, limit?: number, offset?: number }) =>
     call<PaginatedResponse<TaskData>>('media-luna/tasks/list', params),
   get: (id: number) => call<TaskData>('media-luna/tasks/get', { id }),
   delete: (id: number) => call<void>('media-luna/tasks/delete', { id }),
-  stats: (channelId?: number) => call<TaskStats>('media-luna/tasks/stats', { channelId }),
+  stats: (params?: { channelId?: number, startDate?: string }) => call<TaskStats>('media-luna/tasks/stats', params),
   cleanup: (days?: number) => call<{ deleted: number, beforeDate: string }>('media-luna/tasks/cleanup', { days }),
   recent: (userId: number, limit?: number) => call<TaskData[]>('media-luna/tasks/recent', { userId, limit }),
   /** 获取当前用户的任务列表 */
   my: (params?: { channelId?: number, status?: string, limit?: number, offset?: number }) =>
     call<PaginatedResponse<TaskData>>('media-luna/tasks/my', params)
+}
+
+// 用户 API
+export const userApi = {
+  /** 批量获取用户信息（通过 binding 表和 bot 从平台获取头像和用户名） */
+  batch: (uids: number[]) =>
+    call<Record<number, { name?: string; avatar?: string; platform?: string }>>('media-luna/users/batch', { uids })
 }
 
 // 画廊 API
@@ -155,7 +162,10 @@ export const cacheApi = {
     call<CacheStats>('media-luna/cache/stats'),
   /** 清空所有缓存 */
   clear: () =>
-    call<void>('media-luna/cache/clear')
+    call<void>('media-luna/cache/clear'),
+  /** 测试存储连接 */
+  test: () =>
+    call<{ backend: string, url?: string, duration?: number, message: string }>('media-luna/cache/test')
 }
 
 // 设置面板 API
@@ -240,4 +250,17 @@ export const pluginApi = {
   /** 移除外部插件 */
   externalRemove: (moduleName: string) =>
     call<void>('media-luna/plugins/external/remove', { moduleName })
+}
+
+// 版本 API
+export const versionApi = {
+  /** 检查版本更新 */
+  check: () =>
+    call<{
+      current: string
+      latest: string
+      hasUpdate: boolean
+      packageName: string
+      npmUrl: string
+    }>('media-luna/version/check')
 }

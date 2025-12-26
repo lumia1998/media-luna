@@ -386,7 +386,6 @@ export class GenerationPipeline {
     if (!request.onPrepareComplete) return
 
     const hints = context.getUserHints()
-    if (hints.before.length === 0) return
 
     try {
       await request.onPrepareComplete(hints.before)

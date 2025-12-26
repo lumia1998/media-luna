@@ -17,7 +17,7 @@
     <template v-else>
       <div class="plugins-list">
         <div
-          v-for="plugin in plugins"
+          v-for="plugin in sortedPlugins"
           :key="plugin.id"
           class="plugin-card"
           :class="{ active: selectedPlugin?.id === plugin.id, disabled: !plugin.enabled }"
@@ -126,7 +126,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { message, send } from '@koishijs/client'
 import { pluginApi, PluginInfo } from '../../api'
 import ConfigRenderer from '../ConfigRenderer.vue'
@@ -135,6 +135,15 @@ import ConfigRenderer from '../ConfigRenderer.vue'
 const loading = ref(true)
 const plugins = ref<PluginInfo[]>([])
 const selectedPlugin = ref<PluginInfo | null>(null)
+
+// 排序后的插件列表：有 configFields 的排前面
+const sortedPlugins = computed(() => {
+  return [...plugins.value].sort((a, b) => {
+    const aHasConfig = (a.configFields?.length ?? 0) > 0 ? 1 : 0
+    const bHasConfig = (b.configFields?.length ?? 0) > 0 ? 1 : 0
+    return bHasConfig - aHasConfig
+  })
+})
 const pluginConfig = ref<Record<string, any>>({})
 const saving = ref(false)
 
@@ -268,8 +277,31 @@ onMounted(loadPlugins)
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-height: calc(100vh - 200px);
   overflow-y: auto;
+  /* 隐藏式滚动条 */
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.plugins-list:hover {
+  scrollbar-color: var(--k-color-border) transparent;
+}
+
+.plugins-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.plugins-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.plugins-list::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 3px;
+}
+
+.plugins-list:hover::-webkit-scrollbar-thumb {
+  background-color: var(--k-color-border);
 }
 
 .plugin-card {
@@ -375,7 +407,30 @@ onMounted(loadPlugins)
   border-radius: 12px;
   padding: 1.5rem;
   overflow-y: auto;
-  max-height: calc(100vh - 200px);
+  /* 隐藏式滚动条 */
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.plugin-detail:hover {
+  scrollbar-color: var(--k-color-border) transparent;
+}
+
+.plugin-detail::-webkit-scrollbar {
+  width: 6px;
+}
+
+.plugin-detail::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.plugin-detail::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 3px;
+}
+
+.plugin-detail:hover::-webkit-scrollbar-thumb {
+  background-color: var(--k-color-border);
 }
 
 .detail-header {

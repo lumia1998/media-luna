@@ -34,6 +34,13 @@ export default definePlugin({
 
   settingsActions: [
     {
+      name: 'test',
+      label: '测试连接',
+      type: 'primary',
+      icon: 'check',
+      apiEvent: 'media-luna/cache/test'
+    },
+    {
       name: 'stats',
       label: '查看统计',
       type: 'default',

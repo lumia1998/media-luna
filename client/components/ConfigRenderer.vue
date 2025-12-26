@@ -1,7 +1,41 @@
 <template>
-  <div class="config-renderer">
+  <div class="config-renderer" ref="containerRef">
+    <!-- 悬浮快速导航 -->
+    <div
+      v-if="showNav && visibleFields.length > 3"
+      class="quick-nav"
+      :class="{ collapsed: !navExpanded }"
+    >
+      <div class="nav-header" @click="navExpanded = !navExpanded">
+        <div class="nav-header-left">
+          <k-icon name="compass" class="nav-icon" />
+          <span class="nav-title">快速导航</span>
+        </div>
+        <k-icon :name="navExpanded ? 'chevron-up' : 'chevron-down'" class="toggle-icon" />
+      </div>
+      <div v-if="navExpanded" class="nav-body">
+        <div class="nav-list">
+          <div
+            v-for="field in visibleFields"
+            :key="field.key"
+            class="nav-item"
+            :class="{ active: activeFieldKey === field.key }"
+            @click="scrollToField(field.key)"
+          >
+            <span class="nav-item-dot"></span>
+            <span class="nav-item-text">{{ field.label }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <template v-for="field in fields" :key="field.key">
-      <div class="form-row" v-if="shouldShowField(field)">
+      <div
+        class="form-row"
+        v-if="shouldShowField(field)"
+        :ref="el => setFieldRef(field.key, el)"
+        :data-field-key="field.key"
+      >
         <div class="form-label" :class="{ required: field.required }">
           {{ field.label }}
         </div>
@@ -114,8 +148,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, inject, ref, watch, onMounted } from 'vue'
-import type { ConfigField, TableColumnDefinition } from '../types'
+import { computed, ref, watch, onMounted, nextTick } from 'vue'
+import type { ConfigField } from '../types'
 import TableFieldEditor from './TableFieldEditor.vue'
 import { send } from '@koishijs/client'
 
@@ -128,16 +162,80 @@ interface Props {
   clearable?: boolean
   /** 预设数据源（外部注入） */
   presetsMap?: Record<string, Record<string, any>[]>
+  /** 是否显示快速导航 */
+  showNav?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   clearable: false,
-  presetsMap: () => ({})
+  presetsMap: () => ({}),
+  showNav: true
 })
 
 const emit = defineEmits<{
   'update:modelValue': [value: Record<string, any>]
 }>()
+
+// ============ 快速导航 ============
+const containerRef = ref<HTMLElement | null>(null)
+const navExpanded = ref(true)  // 默认展开
+const activeFieldKey = ref('')
+const fieldRefs = ref<Record<string, HTMLElement | null>>({})
+
+// 设置字段 DOM 引用
+const setFieldRef = (key: string, el: any) => {
+  fieldRefs.value[key] = el as HTMLElement | null
+}
+
+// 可见字段列表
+const visibleFields = computed(() => {
+  return props.fields.filter(f => shouldShowField(f))
+})
+
+// 滚动到指定字段
+const scrollToField = (key: string) => {
+  const el = fieldRefs.value[key]
+  if (el) {
+    // 找到可滚动的父容器（向上查找具有 overflow-y: auto 或 scroll 的元素）
+    const findScrollableParent = (element: HTMLElement): HTMLElement | null => {
+      let parent = element.parentElement
+      while (parent) {
+        const style = getComputedStyle(parent)
+        const overflowY = style.overflowY
+        if (overflowY === 'auto' || overflowY === 'scroll') {
+          return parent
+        }
+        parent = parent.parentElement
+      }
+      return null
+    }
+
+    const scrollParent = findScrollableParent(el)
+    if (scrollParent) {
+      // 计算元素相对于滚动容器的位置
+      const containerRect = scrollParent.getBoundingClientRect()
+      const elementRect = el.getBoundingClientRect()
+      const relativeTop = elementRect.top - containerRect.top + scrollParent.scrollTop
+
+      // 滚动到元素位置（居中显示）
+      const targetScroll = relativeTop - scrollParent.clientHeight / 2 + el.offsetHeight / 2
+      scrollParent.scrollTo({
+        top: Math.max(0, targetScroll),
+        behavior: 'smooth'
+      })
+    } else {
+      // 回退：如果找不到滚动容器，尝试使用 scrollIntoView
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+
+    activeFieldKey.value = key
+    // 高亮效果
+    el.classList.add('highlight')
+    setTimeout(() => {
+      el.classList.remove('highlight')
+    }, 1500)
+  }
+}
 
 // ============ 嵌套 key 辅助函数 ============
 
@@ -331,12 +429,22 @@ const getPresets = (source?: string): Record<string, any>[] => {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+  position: relative;
 }
 
 .form-row {
   display: flex;
   align-items: flex-start;
   margin-bottom: 1.25rem;
+  transition: background-color 0.3s;
+  padding: 0.5rem;
+  margin: -0.5rem;
+  margin-bottom: 0.75rem;
+  border-radius: 8px;
+}
+
+.form-row.highlight {
+  background-color: var(--k-color-active-bg, rgba(64, 158, 255, 0.1));
 }
 
 .form-label {
@@ -364,5 +472,152 @@ const getPresets = (source?: string): Record<string, any>[] => {
   font-size: 0.8rem;
   color: var(--k-color-text-description);
   margin-top: 0.25rem;
+}
+
+/* 快速导航 - 卡片式设计 */
+.quick-nav {
+  position: fixed;
+  right: 24px;
+  top: 120px;
+  z-index: 100;
+  background: var(--k-card-bg, #fff);
+  border: 1px solid var(--k-color-border, #e4e7ed);
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  min-width: 180px;
+  max-width: 220px;
+  overflow: hidden;
+  transition: all 0.25s ease;
+}
+
+.quick-nav.collapsed {
+  min-width: auto;
+  max-width: none;
+}
+
+.nav-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  cursor: pointer;
+  background: var(--k-color-bg-2, #f5f7fa);
+  border-bottom: 1px solid var(--k-color-border, #e4e7ed);
+  transition: background 0.15s;
+}
+
+.quick-nav.collapsed .nav-header {
+  border-bottom: none;
+}
+
+.nav-header:hover {
+  background: var(--k-color-fill-light, #ebeef5);
+}
+
+.nav-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nav-icon {
+  font-size: 16px;
+  color: var(--k-color-active, #409eff);
+}
+
+.nav-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--k-color-text, #303133);
+  letter-spacing: 0.02em;
+}
+
+.toggle-icon {
+  font-size: 14px;
+  color: var(--k-color-text-description, #909399);
+  transition: transform 0.2s;
+}
+
+.nav-body {
+  max-height: 280px;
+  overflow: hidden;
+}
+
+.nav-list {
+  padding: 8px;
+  overflow-y: auto;
+  max-height: 264px;
+  /* 隐藏式滚动条 */
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.nav-list:hover {
+  scrollbar-color: var(--k-color-border) transparent;
+}
+
+.nav-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.nav-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.nav-list::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 2px;
+}
+
+.nav-list:hover::-webkit-scrollbar-thumb {
+  background-color: var(--k-color-border);
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  color: var(--k-color-text, #303133);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.nav-item:hover {
+  background: var(--k-color-fill-light, #f5f7fa);
+  color: var(--k-color-active, #409eff);
+}
+
+.nav-item:hover .nav-item-dot {
+  background: var(--k-color-active, #409eff);
+  transform: scale(1.2);
+}
+
+.nav-item.active {
+  background: var(--k-color-active-bg, rgba(64, 158, 255, 0.1));
+  color: var(--k-color-active, #409eff);
+}
+
+.nav-item.active .nav-item-dot {
+  background: var(--k-color-active, #409eff);
+  box-shadow: 0 0 0 3px rgba(64, 158, 255, 0.2);
+}
+
+.nav-item-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--k-color-text-description, #c0c4cc);
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+
+.nav-item-text {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 </style>

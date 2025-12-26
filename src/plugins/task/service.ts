@@ -1,6 +1,6 @@
 // 任务服务
 
-import { Context } from 'koishi'
+import { Context, $ } from 'koishi'
 import type { MediaLunaTask } from '../../types/augmentations'
 import type { GenerationRequest, OutputAsset } from '../../types'
 
@@ -26,6 +26,7 @@ export interface TaskQueryOptions {
   uid?: number
   channelId?: number
   status?: TaskStatus
+  startDate?: Date  // 只查询此时间之后的任务
   limit?: number
   offset?: number
 }
@@ -143,6 +144,9 @@ export class TaskService {
     if (options.status) {
       selection = selection.where({ status: options.status })
     }
+    if (options.startDate) {
+      selection = selection.where(row => $.gte(row.startTime, options.startDate!))
+    }
 
     const records = await selection
       .orderBy('id', 'desc')
@@ -170,6 +174,9 @@ export class TaskService {
     }
     if (options.status) {
       selection = selection.where({ status: options.status })
+    }
+    if (options.startDate) {
+      selection = selection.where(row => $.gte(row.startTime, options.startDate!))
     }
 
     const result = await selection.execute()

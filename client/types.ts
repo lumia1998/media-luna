@@ -227,6 +227,9 @@ declare module '@koishijs/client' {
     // 用户任务
     'media-luna/tasks/my': (params?: { channelId?: number, status?: string, limit?: number, offset?: number }) => ApiResponse<PaginatedResponse<TaskData>>
 
+    // 用户信息
+    'media-luna/users/batch': (params: { uids: number[] }) => ApiResponse<Record<number, { name?: string; avatar?: string }>>
+
     // 认证
     'media-luna/auth/me': () => ApiResponse<{ loggedIn: boolean, source?: string, uid?: number, name?: string, authority?: number }>
   }

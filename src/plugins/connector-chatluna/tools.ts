@@ -219,9 +219,10 @@ class MediaLunaGenerateTool extends StructuredTool {
 
       // 异步模式：立即返回，后台生成
       if (this.toolConfig.returnMode === 'async') {
-        // 发送开始消息
-        if (session) {
-          await session.send('开始生成图片...')
+        // 根据配置决定是否发送开始消息
+        if (session && this.toolConfig.asyncSendStartMessage !== false) {
+          const startMessage = this.toolConfig.asyncStartMessage || '图片正在生成中...'
+          await session.send(startMessage)
         }
 
         // 后台执行生成

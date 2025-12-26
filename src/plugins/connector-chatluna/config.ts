@@ -18,6 +18,10 @@ export interface ToolConfig {
   enabled: boolean
   /** 返回模式：sync=等待生成完成后返回，async=立即返回并在后台生成 */
   returnMode: ReturnMode
+  /** 异步模式下是否发送开始提示 */
+  asyncSendStartMessage?: boolean
+  /** 异步模式开始提示内容 */
+  asyncStartMessage?: string
   /** 内置渠道名（如果设置，AI 无法选择渠道） */
   builtinChannel?: string
   /** 内置预设名（如果设置，AI 无法选择预设） */
@@ -159,6 +163,19 @@ export const chatlunaConfigFields: ConfigField[] = [
         width: '140px'
       },
       {
+        key: 'asyncSendStartMessage',
+        label: '发送开始提示',
+        type: 'boolean',
+        width: '100px'
+      },
+      {
+        key: 'asyncStartMessage',
+        label: '开始提示内容',
+        type: 'text',
+        placeholder: '图片正在生成中...',
+        width: '160px'
+      },
+      {
         key: 'builtinChannel',
         label: '内置渠道',
         type: 'text',
@@ -174,7 +191,9 @@ export const chatlunaConfigFields: ConfigField[] = [
       }
     ],
     tableConfig: {
-      maxRows: 20
+      maxRows: 20,
+      titleColumn: 'name',
+      subtitleColumn: 'description'
     }
   },
   // 提示词润色配置字段（带前缀）

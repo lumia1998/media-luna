@@ -33,10 +33,22 @@
     >
       <!-- 搜索和筛选 - 复用 PresetsView 的筛选样式 -->
       <div class="picker-header">
+        <div class="search-wrapper">
+          <el-input
+            v-model="searchKeyword"
+            placeholder="搜索预设..."
+            clearable
+            size="small"
+            class="search-input"
+          >
+            <template #prefix><k-icon name="search"></k-icon></template>
+          </el-input>
+        </div>
         <TagFilter
           v-model="selectedTags"
           :all-tags="allTags"
           :preset-tags="presetTags"
+          :show-input="false"
         />
         <span class="preset-count">共 {{ filteredPresets.length }} 个预设</span>
       </div>
@@ -202,6 +214,7 @@ const presetTags = ['本地', '远程', 'text2img', 'img2img', 'NSFW']
 const pickerVisible = ref(false)
 const detailVisible = ref(false)
 const selectedTags = ref<string[]>([])
+const searchKeyword = ref('')
 const tempSelectedId = ref<number | undefined>(props.modelValue)
 const detailPreset = ref<PresetData | null>(null)
 
@@ -224,23 +237,39 @@ const selectedPreset = computed(() => {
 const filteredPresets = computed(() => {
   let result = props.presets
 
-  if (selectedTags.value.length === 0) return result
-
-  return result.filter(p => {
-    return selectedTags.value.every(tag => {
-      // 虚拟标签：本地/远程
-      if (tag === '本地') return p.source === 'user'
-      if (tag === '远程') return p.source === 'api'
-      // 普通标签匹配
-      return (p.tags || []).includes(tag)
+  // 搜索关键词过滤（名称或标签）
+  const keyword = searchKeyword.value.trim().toLowerCase()
+  if (keyword) {
+    result = result.filter(p => {
+      // 匹配名称
+      if (p.name.toLowerCase().includes(keyword)) return true
+      // 匹配标签
+      if ((p.tags || []).some(t => t.toLowerCase().includes(keyword))) return true
+      return false
     })
-  })
+  }
+
+  // 标签过滤
+  if (selectedTags.value.length > 0) {
+    result = result.filter(p => {
+      return selectedTags.value.every(tag => {
+        // 虚拟标签：本地/远程
+        if (tag === '本地') return p.source === 'user'
+        if (tag === '远程') return p.source === 'api'
+        // 普通标签匹配
+        return (p.tags || []).includes(tag)
+      })
+    })
+  }
+
+  return result
 })
 
 // 方法
 const openPicker = () => {
   tempSelectedId.value = props.modelValue
   selectedTags.value = []
+  searchKeyword.value = ''
   pickerVisible.value = true
 }
 
@@ -396,9 +425,18 @@ watch(() => props.modelValue, (newVal) => {
 /* 选择器弹窗 */
 .picker-header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 1rem;
   margin-bottom: 1rem;
+}
+
+.search-wrapper {
+  flex-shrink: 0;
+}
+
+.search-input {
+  width: 220px;
 }
 
 .preset-count {

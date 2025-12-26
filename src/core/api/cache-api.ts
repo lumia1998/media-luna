@@ -35,13 +35,12 @@ export function registerCacheApi(ctx: Context): void {
       const buffer = Buffer.from(data, 'base64')
 
       const cached = await cache.cache(buffer, mime, filename)
-      const url = cache.getUrl(cached.id)
 
       return {
         success: true,
         data: {
           id: cached.id,
-          url,  // 返回可访问的 URL
+          url: cached.url,  // 直接使用 cached.url
           filename: cached.filename,
           mime: cached.mime,
           size: cached.size
@@ -59,13 +58,12 @@ export function registerCacheApi(ctx: Context): void {
       if (error) return error
 
       const cached = await cache.cacheFromUrl(url)
-      const cachedUrl = cache.getUrl(cached.id)
 
       return {
         success: true,
         data: {
           id: cached.id,
-          url: cachedUrl,  // 返回可访问的 URL
+          url: cached.url,  // 直接使用 cached.url
           filename: cached.filename,
           mime: cached.mime,
           size: cached.size
@@ -86,13 +84,12 @@ export function registerCacheApi(ctx: Context): void {
       if (!cached) {
         return { success: false, error: 'Cache not found' }
       }
-      const url = cache.getUrl(cached.id)
 
       return {
         success: true,
         data: {
           id: cached.id,
-          url,  // 返回可访问的 URL
+          url: cached.url,  // 直接使用 cached.url
           filename: cached.filename,
           mime: cached.mime,
           size: cached.size,
@@ -155,6 +152,28 @@ export function registerCacheApi(ctx: Context): void {
 
       await cache.clearAll()
       return { success: true }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+    }
+  })
+
+  // 测试存储连接
+  console.addListener('media-luna/cache/test', async () => {
+    try {
+      const { cache, error } = getCacheService()
+      if (error) return error
+
+      const result = await cache.testConnection()
+      return {
+        success: result.success,
+        data: result.success ? {
+          backend: cache.getBackend(),
+          url: result.url,
+          duration: result.duration,
+          message: result.message
+        } : undefined,
+        error: result.success ? undefined : result.message
+      }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
     }
