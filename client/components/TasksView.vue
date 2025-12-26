@@ -101,6 +101,14 @@
     <!-- 筛选栏 (固定) -->
     <div class="filter-bar">
       <div class="filter-group">
+        <!-- 批量选择控制 -->
+        <div class="batch-select-control" v-if="viewMode === 'list'">
+          <el-checkbox
+            v-model="isAllSelected"
+            :indeterminate="isIndeterminate"
+            @change="toggleSelectAll"
+          />
+        </div>
         <el-select
           v-model="filter.status"
           placeholder="所有状态"
@@ -142,16 +150,49 @@
           </template>
         </el-input>
       </div>
-      <div class="pagination-info" v-if="total > 0">
-        共 {{ total }} 条记录
+      <div class="filter-right">
+        <!-- 批量操作按钮 -->
+        <Transition name="fade">
+          <div class="batch-actions" v-if="selectedIds.size > 0">
+            <span class="selected-count">已选 {{ selectedIds.size }} 项</span>
+            <button class="batch-btn danger" @click="openBatchDeleteDialog">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+              </svg>
+              <span>删除选中</span>
+            </button>
+            <button class="batch-btn" @click="clearSelection">
+              <span>取消选择</span>
+            </button>
+          </div>
+        </Transition>
+        <div class="pagination-info" v-if="total > 0 && selectedIds.size === 0">
+          共 {{ total }} 条记录
+        </div>
       </div>
     </div>
 
     <!-- 可滚动的内容区域 -->
-    <div class="ml-view-content">
+    <div class="ml-view-content" :class="{ 'no-scroll': viewMode === 'list' }">
       <!-- 列表视图 -->
       <template v-if="viewMode === 'list'">
-        <el-table :data="tasks" style="width: 100%" class="task-table" @row-click="openDetailDialog">
+        <el-table :data="tasks" style="width: 100%" height="100%" class="task-table" @row-click="handleRowClick">
+          <el-table-column width="50" align="center">
+            <template #header>
+              <el-checkbox
+                v-model="isAllSelected"
+                :indeterminate="isIndeterminate"
+                @change="toggleSelectAll"
+              />
+            </template>
+            <template #default="{ row }">
+              <el-checkbox
+                :model-value="selectedIds.has(row.id)"
+                @change="(val: boolean) => toggleSelect(row.id, val)"
+                @click.stop
+              />
+            </template>
+          </el-table-column>
           <el-table-column prop="id" label="ID" width="80" align="center">
             <template #default="{ row }">
               <span class="mono-text">#{{ row.id }}</span>
@@ -172,11 +213,24 @@
             </template>
           </el-table-column>
 
-          <el-table-column label="输出" width="120" align="center">
+          <el-table-column label="输出" width="140" align="center">
             <template #default="{ row }">
-              <span v-if="row.responseSnapshot && row.responseSnapshot.length">
-                {{ row.responseSnapshot.length }} 个资产
-              </span>
+              <div v-if="row.responseSnapshot && row.responseSnapshot.length" class="output-thumbnails">
+                <template v-for="(asset, idx) in row.responseSnapshot.slice(0, 3)" :key="idx">
+                  <img
+                    v-if="asset.kind === 'image' && asset.url"
+                    :src="asset.url"
+                    class="output-thumb"
+                    @error="handleImageError"
+                  />
+                  <div v-else-if="asset.kind === 'video'" class="output-thumb video-thumb">
+                    <k-icon name="play"></k-icon>
+                  </div>
+                </template>
+                <span v-if="row.responseSnapshot.length > 3" class="output-more">
+                  +{{ row.responseSnapshot.length - 3 }}
+                </span>
+              </div>
               <span v-else class="text-muted">-</span>
             </template>
           </el-table-column>
@@ -188,13 +242,13 @@
             </template>
           </el-table-column>
 
-          <el-table-column label="时间" width="180" align="right">
+          <el-table-column label="时间" width="180" align="center">
             <template #default="{ row }">
               <span class="time-text">{{ formatDate(row.startTime) }}</span>
             </template>
           </el-table-column>
 
-          <el-table-column label="" width="50" align="center">
+          <el-table-column width="60" align="center" fixed="right">
             <template #default="{ row }">
               <span
                 class="delete-btn"
@@ -362,6 +416,82 @@
         </span>
       </template>
     </el-dialog>
+
+    <!-- 删除确认对话框 -->
+    <el-dialog
+      v-model="deleteConfirmVisible"
+      title="删除确认"
+      width="420px"
+    >
+      <div class="delete-confirm-content">
+        <div class="delete-icon-wrapper">
+          <svg viewBox="0 0 24 24" fill="currentColor" class="delete-icon">
+            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+          </svg>
+        </div>
+        <div class="delete-info">
+          <div class="delete-title">确定删除此任务？</div>
+          <div class="delete-task-id">#{{ taskToDelete?.id }}</div>
+          <div class="delete-prompt" v-if="taskToDelete">{{ getDeletePromptPreview(taskToDelete) }}</div>
+        </div>
+        <div class="delete-warning">
+          <svg viewBox="0 0 24 24" fill="currentColor" class="warning-icon">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+          </svg>
+          <span>此操作不可恢复</span>
+        </div>
+      </div>
+      <template #footer>
+        <span class="dialog-footer">
+          <k-button @click="deleteConfirmVisible = false">取消</k-button>
+          <k-button type="error" @click="doDeleteTask">确认删除</k-button>
+        </span>
+      </template>
+    </el-dialog>
+
+    <!-- 批量删除确认对话框 -->
+    <el-dialog
+      v-model="batchDeleteVisible"
+      title="批量删除确认"
+      width="460px"
+    >
+      <div class="delete-confirm-content">
+        <div class="delete-icon-wrapper batch">
+          <svg viewBox="0 0 24 24" fill="currentColor" class="delete-icon">
+            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+          </svg>
+        </div>
+        <div class="delete-info">
+          <div class="delete-title">确定删除选中的任务？</div>
+          <div class="batch-count">
+            <span class="count-number">{{ selectedIds.size }}</span>
+            <span class="count-label">条任务将被删除</span>
+          </div>
+          <div class="batch-ids">
+            <span v-for="id in Array.from(selectedIds).slice(0, 10)" :key="id" class="batch-id-tag">
+              #{{ id }}
+            </span>
+            <span v-if="selectedIds.size > 10" class="batch-more">
+              +{{ selectedIds.size - 10 }} 更多
+            </span>
+          </div>
+        </div>
+        <div class="delete-warning">
+          <svg viewBox="0 0 24 24" fill="currentColor" class="warning-icon">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+          </svg>
+          <span>此操作不可恢复，请谨慎操作</span>
+        </div>
+      </div>
+      <template #footer>
+        <span class="dialog-footer">
+          <k-button @click="batchDeleteVisible = false">取消</k-button>
+          <k-button type="error" @click="doBatchDelete">
+            确认删除 {{ selectedIds.size }} 条
+          </k-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -414,11 +544,39 @@ const lightboxIndex = ref(0)
 const cleanupVisible = ref(false)
 const cleanupDays = ref(30)
 
+// 删除确认
+const deleteConfirmVisible = ref(false)
+const taskToDelete = ref<TaskData | null>(null)
+
+// 批量选择
+const selectedIds = ref<Set<number>>(new Set())
+const batchDeleteVisible = ref(false)
+
+// 计算属性：是否全选
+const isAllSelected = computed(() => {
+  if (tasks.value.length === 0) return false
+  return tasks.value.every(t => selectedIds.value.has(t.id))
+})
+
+// 计算属性：是否部分选中
+const isIndeterminate = computed(() => {
+  if (tasks.value.length === 0) return false
+  const selectedCount = tasks.value.filter(t => selectedIds.value.has(t.id)).length
+  return selectedCount > 0 && selectedCount < tasks.value.length
+})
+
 // 获取任务的最终提示词
 const getFinalPrompt = (task: TaskData): string => {
   return (task.middlewareLogs as any)?.preset?.transformedPrompt
     || task.requestSnapshot?.prompt
     || ''
+}
+
+// 获取删除确认弹窗中的提示词预览（截断）
+const getDeletePromptPreview = (task: TaskData): string => {
+  const prompt = getFinalPrompt(task)
+  if (!prompt) return '(无提示词)'
+  return prompt.length > 60 ? prompt.slice(0, 60) + '...' : prompt
 }
 
 // 画廊项目类型
@@ -588,15 +746,91 @@ const confirmCleanup = async () => {
   }
 }
 
-// 删除单个任务
-const confirmDeleteTask = async (task: TaskData) => {
-  if (!confirm(`确定删除任务 #${task.id} 吗？`)) return
+// 删除单个任务 - 打开确认对话框
+const confirmDeleteTask = (task: TaskData) => {
+  taskToDelete.value = task
+  deleteConfirmVisible.value = true
+}
+
+// 执行删除
+const doDeleteTask = async () => {
+  if (!taskToDelete.value) return
   try {
-    await taskApi.delete(task.id)
+    await taskApi.delete(taskToDelete.value.id)
     message.success('删除成功')
+    deleteConfirmVisible.value = false
+    taskToDelete.value = null
     fetchData()
   } catch (e) {
     message.error('删除失败')
+  }
+}
+
+// 批量选择相关函数
+const toggleSelect = (id: number, selected: boolean) => {
+  const newSet = new Set(selectedIds.value)
+  if (selected) {
+    newSet.add(id)
+  } else {
+    newSet.delete(id)
+  }
+  selectedIds.value = newSet
+}
+
+const toggleSelectAll = (selected: boolean) => {
+  if (selected) {
+    selectedIds.value = new Set(tasks.value.map(t => t.id))
+  } else {
+    selectedIds.value = new Set()
+  }
+}
+
+const clearSelection = () => {
+  selectedIds.value = new Set()
+}
+
+const openBatchDeleteDialog = () => {
+  batchDeleteVisible.value = true
+}
+
+const doBatchDelete = async () => {
+  const ids = Array.from(selectedIds.value)
+  if (ids.length === 0) return
+
+  let successCount = 0
+  let failCount = 0
+
+  for (const id of ids) {
+    try {
+      await taskApi.delete(id)
+      successCount++
+    } catch (e) {
+      failCount++
+    }
+  }
+
+  batchDeleteVisible.value = false
+  selectedIds.value = new Set()
+
+  if (failCount === 0) {
+    message.success(`成功删除 ${successCount} 条任务`)
+  } else {
+    message.warning(`删除完成：${successCount} 成功，${failCount} 失败`)
+  }
+
+  fetchData()
+}
+
+// 行点击处理 - 打开 ImageLightbox 查看详情
+const handleRowClick = (row: TaskData) => {
+  // 如果有图片/视频输出，打开 Lightbox
+  if (row.responseSnapshot && row.responseSnapshot.length > 0) {
+    lightboxTaskId.value = row.id
+    lightboxIndex.value = 0
+    lightboxVisible.value = true
+  } else {
+    // 没有输出的任务，打开详情弹窗
+    openDetailDialog(row)
   }
 }
 
@@ -640,6 +874,14 @@ onMounted(() => {
 
 <style scoped>
 @import '../styles/shared.css';
+
+/* ========== 列表视图滚动控制 ========== */
+/* 列表视图时，禁用外层滚动，让 el-table 自己处理滚动（固定表头） */
+.ml-view-content.no-scroll {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
 
 /* ========== 任务视图特有样式 ========== */
 
@@ -701,7 +943,7 @@ onMounted(() => {
 .group-btn.active {
   color: var(--k-color-active);
   background-color: var(--k-card-bg);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--k-shadow-1, 0 1px 2px var(--k-color-shadow, rgba(0, 0, 0, 0.08)));
 }
 
 /* 工具栏按钮 */
@@ -750,12 +992,12 @@ onMounted(() => {
   transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
   position: relative;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--k-shadow-1, 0 2px 8px var(--k-color-shadow, rgba(0, 0, 0, 0.04)));
 }
 
 .stat-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--k-shadow-2, 0 8px 24px var(--k-color-shadow, rgba(0, 0, 0, 0.08)));
 }
 
 .stat-icon {
@@ -776,11 +1018,11 @@ onMounted(() => {
   transform: scale(1.1);
 }
 
-.stat-icon.total { background-color: rgba(var(--k-color-primary-rgb), 0.1); color: var(--k-color-primary); }
-.stat-icon.success { background-color: rgba(var(--k-color-success-rgb), 0.1); color: var(--k-color-success); }
-.stat-icon.failed { background-color: rgba(var(--k-color-error-rgb), 0.1); color: var(--k-color-error); }
-.stat-icon.processing { background-color: rgba(var(--k-color-warning-rgb), 0.1); color: var(--k-color-warning); }
-.stat-icon.rate { background-color: rgba(var(--k-color-info-rgb), 0.1); color: var(--k-color-info); }
+.stat-icon.total { background-color: var(--k-color-active-bg, var(--k-color-bg-2)); color: var(--k-color-active); }
+.stat-icon.success { background-color: var(--k-color-success-light, rgba(103, 194, 58, 0.1)); color: var(--k-color-success); }
+.stat-icon.failed { background-color: var(--k-color-error-light, rgba(245, 108, 108, 0.1)); color: var(--k-color-error); }
+.stat-icon.processing { background-color: var(--k-color-warning-light, rgba(230, 162, 60, 0.1)); color: var(--k-color-warning); }
+.stat-icon.rate { background-color: var(--k-color-active-bg, var(--k-color-bg-2)); color: var(--k-color-active); }
 
 .stat-content {
   display: flex;
@@ -893,7 +1135,7 @@ onMounted(() => {
 
 .delete-btn:hover {
   color: var(--k-color-error);
-  background-color: rgba(var(--k-color-error-rgb, 245, 108, 108), 0.1);
+  background-color: var(--k-color-error-light, rgba(245, 108, 108, 0.1));
 }
 
 .prompt-cell {
@@ -906,10 +1148,42 @@ onMounted(() => {
 .time-text {
   font-size: 0.85rem;
   color: var(--k-color-text-description);
+  white-space: nowrap;
 }
 
 .text-muted {
   color: var(--k-color-text-description);
+}
+
+/* 输出缩略图 */
+.output-thumbnails {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.output-thumb {
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  object-fit: cover;
+  border: 1px solid var(--k-color-border);
+  background: var(--k-color-bg-2);
+}
+
+.video-thumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--k-color-text-description);
+  font-size: 14px;
+}
+
+.output-more {
+  font-size: 0.75rem;
+  color: var(--k-color-text-description);
+  margin-left: 2px;
 }
 
 /* Gallery Item */
@@ -924,7 +1198,7 @@ onMounted(() => {
 
 .gallery-item:hover {
   border-color: var(--k-color-active);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--k-shadow-2, 0 4px 12px var(--k-color-shadow, rgba(0, 0, 0, 0.1)));
 }
 
 .gallery-image-wrapper {
@@ -949,7 +1223,7 @@ onMounted(() => {
 .gallery-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 50%);
+  background: linear-gradient(to top, var(--k-color-overlay, rgba(0, 0, 0, 0.8)) 0%, transparent 50%);
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
@@ -964,7 +1238,7 @@ onMounted(() => {
 
 .zoom-icon {
   font-size: 2rem;
-  color: #fff;
+  color: var(--k-color-text-inverse, #fff);
   margin-bottom: auto;
   align-self: center;
   opacity: 0;
@@ -1149,7 +1423,7 @@ onMounted(() => {
 
 .output-item:hover {
   transform: scale(1.02);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  box-shadow: var(--k-shadow-2, 0 4px 12px var(--k-color-shadow, rgba(0, 0, 0, 0.1)));
 }
 
 .output-image {
@@ -1198,7 +1472,7 @@ onMounted(() => {
 
 .gallery-detail-media {
   flex: 1;
-  background: #000;
+  background: var(--k-color-bg-1, #000);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1320,5 +1594,221 @@ onMounted(() => {
   display: flex;
   gap: 10px;
   justify-content: flex-end;
+}
+
+/* 批量选择样式 */
+.batch-select-control {
+  display: flex;
+  align-items: center;
+  padding-right: 0.5rem;
+  border-right: 1px solid var(--k-color-border);
+  margin-right: 0.5rem;
+}
+
+.filter-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-height: 32px;
+}
+
+.batch-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0 0.75rem;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+}
+
+.selected-count {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--k-color-active);
+}
+
+.batch-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px;
+  border: 1px solid var(--k-color-border);
+  background: var(--k-card-bg);
+  color: var(--k-color-text-description);
+  cursor: pointer;
+  border-radius: 6px;
+  font-size: 13px;
+  transition: all 0.15s ease;
+}
+
+.batch-btn:hover {
+  color: var(--k-color-text);
+  border-color: var(--k-color-active);
+}
+
+.batch-btn.danger {
+  background: var(--k-card-bg);
+  border-color: var(--k-color-error);
+  color: var(--k-color-error);
+}
+
+.batch-btn.danger:hover {
+  background: var(--k-color-bg-2);
+  border-color: var(--k-color-error);
+  color: var(--k-color-error);
+  filter: brightness(0.95);
+}
+
+/* 删除确认弹窗美化 */
+.delete-confirm-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 0.5rem 0;
+}
+
+.delete-icon-wrapper {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--k-color-bg-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.25rem;
+}
+
+.delete-icon {
+  width: 32px;
+  height: 32px;
+  color: var(--k-color-error);
+}
+
+.delete-info {
+  width: 100%;
+}
+
+.delete-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--k-color-text);
+  margin-bottom: 0.75rem;
+}
+
+.delete-task-id {
+  display: inline-block;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--k-color-active);
+  background: var(--k-color-bg-2);
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  margin-bottom: 0.75rem;
+}
+
+.delete-prompt {
+  font-size: 0.85rem;
+  color: var(--k-color-text-description);
+  background: var(--k-color-bg-2);
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  line-height: 1.5;
+  max-width: 100%;
+  word-break: break-word;
+}
+
+.delete-warning {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+  padding: 0.5rem 1rem;
+  background: var(--k-color-bg-2);
+  border: 1px solid var(--k-color-border);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  color: var(--k-color-text-description);
+}
+
+.warning-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+/* 批量删除弹窗增强样式 */
+.delete-icon-wrapper.batch {
+  width: 72px;
+  height: 72px;
+}
+
+.delete-icon-wrapper.batch .delete-icon {
+  width: 36px;
+  height: 36px;
+}
+
+.batch-count {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.count-number {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--k-color-active);
+  line-height: 1;
+}
+
+.count-label {
+  font-size: 0.9rem;
+  color: var(--k-color-text-description);
+}
+
+.batch-ids {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: var(--k-color-bg-2);
+  border-radius: 8px;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.batch-id-tag {
+  display: inline-block;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 0.8rem;
+  color: var(--k-color-active);
+  background: var(--k-card-bg);
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid var(--k-color-border);
+}
+
+.batch-more {
+  font-size: 0.8rem;
+  color: var(--k-color-text-description);
+  padding: 0.2rem 0.5rem;
+}
+
+/* 过渡动画 */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+  transform: translateX(10px);
 }
 </style>
