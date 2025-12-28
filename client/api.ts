@@ -50,6 +50,7 @@ async function call<T>(event: keyof any, params?: any): Promise<T> {
 // 渠道 API
 export const channelApi = {
   list: () => call<ChannelConfig[]>('media-luna/channels/list'),
+  listEnabled: () => call<ChannelConfig[]>('media-luna/channels/list-enabled'),
   get: (id: number) => call<ChannelConfig>('media-luna/channels/get', { id }),
   create: (data: Omit<ChannelConfig, 'id'>) => call<ChannelConfig>('media-luna/channels/create', data),
   update: (id: number, data: Partial<ChannelConfig>) => call<ChannelConfig>('media-luna/channels/update', { id, data }),

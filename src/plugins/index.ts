@@ -27,6 +27,7 @@ import chatlunaConnectorPlugin from './connector-chatluna'
 import doubaoConnectorPlugin from './connector-doubao'
 import minimaxConnectorPlugin from './connector-minimax'
 import edgeTTSConnectorPlugin from './connector-edge-tts'
+import { modelscopePlugin } from './plugin-modelscope'
 
 /** 内置插件列表 - 只需在这里维护一次 */
 export const builtinPlugins: PluginDefinition[] = [
@@ -53,7 +54,8 @@ export const builtinPlugins: PluginDefinition[] = [
   chatlunaConnectorPlugin,
   doubaoConnectorPlugin,
   minimaxConnectorPlugin,
-  edgeTTSConnectorPlugin
+  edgeTTSConnectorPlugin,
+  modelscopePlugin
 ]
 
 // 单独导出插件（用于外部引用）
@@ -79,7 +81,8 @@ export {
   chatlunaConnectorPlugin,
   doubaoConnectorPlugin,
   minimaxConnectorPlugin,
-  edgeTTSConnectorPlugin
+  edgeTTSConnectorPlugin,
+  modelscopePlugin
 }
 
 // 导出类型
@@ -93,6 +96,7 @@ export type { KoishiCommandsConfig } from './koishi-commands'
 export type { VitsPluginConfig, VitsSpeaker, VitsSayOptions } from './vits'
 export type { ChatLunaPluginConfig, ToolConfig, PresetToolConfig } from './connector-chatluna/config'
 export type { ChatLunaPromptEnhanceConfig } from './connector-chatluna/middleware'
+export type { MiddlewareConfig as ModelScopeMiddlewareConfig, LoraAlias as ModelScopeLoraAlias } from './plugin-modelscope/config'
 
 // 导出服务
 export { CacheService } from './cache'

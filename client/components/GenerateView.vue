@@ -211,7 +211,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, onActivated } from 'vue'
 import { message } from '@koishijs/client'
 import { ChannelConfig, PresetData, GenerationResult, ClientFileData } from '../types'
 import { channelApi, presetApi, generateApi, taskApi } from '../api'
@@ -319,8 +319,8 @@ const openImagePreview = (index: number) => {
 const fetchData = async () => {
   try {
     const [channelsData, presetsData] = await Promise.all([
-      channelApi.list(),
-      presetApi.list()
+      channelApi.listEnabled(),
+      presetApi.list(true)
     ])
     channels.value = channelsData
     presets.value = presetsData
@@ -512,6 +512,11 @@ const handleHistorySelect = (task: { prompt: string }) => {
 }
 
 onMounted(() => {
+  fetchData()
+})
+
+// keep-alive 激活时刷新数据
+onActivated(() => {
   fetchData()
 })
 

@@ -299,10 +299,28 @@ const getSpeakerId = (channelId: number) => {
 /** 复制 Speaker ID 到剪贴板 */
 const copySpeakerId = async (channelId: number) => {
   const speakerId = getSpeakerId(channelId)
+  const text = String(speakerId)
+
   try {
-    await navigator.clipboard.writeText(String(speakerId))
+    // 尝试使用现代 Clipboard API
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text)
+    } else {
+      // Fallback: 使用传统方法
+      const textArea = document.createElement('textarea')
+      textArea.value = text
+      textArea.style.position = 'fixed'
+      textArea.style.left = '-9999px'
+      textArea.style.top = '-9999px'
+      document.body.appendChild(textArea)
+      textArea.focus()
+      textArea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textArea)
+    }
     message.success(`已复制 Speaker ID: ${speakerId}`)
-  } catch {
+  } catch (e) {
+    console.error('Failed to copy:', e)
     message.error('复制失败')
   }
 }
@@ -439,6 +457,7 @@ onMounted(() => {
 .speaker-id-badge .k-icon {
   font-size: 0.7rem;
   opacity: 0.8;
+  pointer-events: none;
 }
 
 .connector-badge {

@@ -828,11 +828,6 @@ const handleSave = async () => {
   }
 }
 
-const handleClosed = () => {
-  activeTab.value = 'basic'
-  expandedPlugins.value.clear()
-}
-
 // 加载数据
 const loadData = async () => {
   try {
@@ -888,6 +883,10 @@ watch(() => props.modelValue, async (newVal) => {
         tags: []
       }
     }
+  } else {
+    // 对话框关闭时重置状态
+    activeTab.value = 'basic'
+    expandedPlugins.value.clear()
   }
 })
 </script>
