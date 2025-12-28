@@ -10,6 +10,7 @@ import taskPlugin from './task'
 import promptEncodingPlugin from './prompt-encoding'
 import webuiAuthPlugin from './webui-auth'
 import koishiCommandsPlugin from './koishi-commands'
+import vitsPlugin from './vits'
 
 // 连接器插件
 import dalleConnectorPlugin from './connector-dalle'
@@ -24,6 +25,7 @@ import runwayConnectorPlugin from './connector-runway'
 import comfyuiConnectorPlugin from './connector-comfyui'
 import chatlunaConnectorPlugin from './connector-chatluna'
 import doubaoConnectorPlugin from './connector-doubao'
+import minimaxConnectorPlugin from './connector-minimax'
 
 /** 内置插件列表 - 只需在这里维护一次 */
 export const builtinPlugins: PluginDefinition[] = [
@@ -35,6 +37,7 @@ export const builtinPlugins: PluginDefinition[] = [
   promptEncodingPlugin,
   webuiAuthPlugin,
   koishiCommandsPlugin,
+  vitsPlugin,
   // 连接器插件
   dalleConnectorPlugin,
   sdWebuiConnectorPlugin,
@@ -47,7 +50,8 @@ export const builtinPlugins: PluginDefinition[] = [
   runwayConnectorPlugin,
   comfyuiConnectorPlugin,
   chatlunaConnectorPlugin,
-  doubaoConnectorPlugin
+  doubaoConnectorPlugin,
+  minimaxConnectorPlugin
 ]
 
 // 单独导出插件（用于外部引用）
@@ -59,6 +63,7 @@ export {
   promptEncodingPlugin,
   webuiAuthPlugin,
   koishiCommandsPlugin,
+  vitsPlugin,
   dalleConnectorPlugin,
   sdWebuiConnectorPlugin,
   fluxConnectorPlugin,
@@ -70,7 +75,8 @@ export {
   runwayConnectorPlugin,
   comfyuiConnectorPlugin,
   chatlunaConnectorPlugin,
-  doubaoConnectorPlugin
+  doubaoConnectorPlugin,
+  minimaxConnectorPlugin
 }
 
 // 导出类型
@@ -81,6 +87,7 @@ export type { TaskPluginConfig } from './task'
 export type { PromptEncodingConfig } from './prompt-encoding'
 export type { WebuiAuthConfig } from './webui-auth'
 export type { KoishiCommandsConfig } from './koishi-commands'
+export type { VitsPluginConfig, VitsSpeaker, VitsSayOptions } from './vits'
 export type { ChatLunaPluginConfig, ToolConfig, PresetToolConfig } from './connector-chatluna/config'
 export type { ChatLunaPromptEnhanceConfig } from './connector-chatluna/middleware'
 
@@ -89,6 +96,7 @@ export { CacheService } from './cache'
 export { PresetService, RemoteSyncService } from './preset'
 export { TaskService } from './task'
 export { WebuiAuthService } from './webui-auth'
+export { MediaLunaVits, getChannelSpeakerIdBase, getSpeakerIdFromChannelId, getChannelIdFromSpeakerId } from './vits'
 
 // 导出中间件工厂
 export { createPromptEncodingMiddleware } from './prompt-encoding'

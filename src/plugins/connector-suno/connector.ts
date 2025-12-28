@@ -174,6 +174,7 @@ export const SunoConnector: ConnectorDefinition = {
   supportedTypes: ['audio'],
   fields: connectorFields,
   cardFields: connectorCardFields,
+  defaultTags: ['text2audio'],
   generate,
 
   getRequestLog(config, files, prompt): ConnectorRequestLog {

@@ -102,6 +102,7 @@ export const SDWebUIConnector: ConnectorDefinition = {
   supportedTypes: ['image'],
   fields: connectorFields,
   cardFields: connectorCardFields,
+  defaultTags: ['text2img', 'img2img'],
   generate,
 
   /** 获取请求日志 */

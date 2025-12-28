@@ -37,15 +37,14 @@
             <div class="command-box">
               <code>bindui</code>
             </div>
-            <p class="small-hint">发送指令后，请根据提示输入左侧的验证码。</p>
+            <p class="small-hint">发送指令后，机器人会提示你输入验证码，直接在聊天平台回复左侧的验证码即可。</p>
           </div>
         </div>
       </div>
     </div>
 
     <div class="step-actions">
-      <k-button @click="$emit('skip')">跳过</k-button>
-      <k-button type="primary" :loading="saving" @click="handleSave">
+      <k-button type="primary" :loading="saving" :disabled="!uid" @click="handleSave">
         保存 / 完成
       </k-button>
     </div>
@@ -59,7 +58,6 @@ import { setupApi } from '../../api'
 
 const emit = defineEmits<{
   (e: 'complete'): void
-  (e: 'skip'): void
 }>()
 
 defineProps<{
@@ -119,10 +117,7 @@ const handleUidChange = () => {
 
 // 保存/直接绑定
 const handleSave = async () => {
-  if (!uid.value) {
-    message.warning('请输入用户 ID')
-    return
-  }
+  if (!uid.value) return
 
   try {
     // 尝试直接更新配置（如果通过验证码流程绑定了，这里再次设置也是安全的）

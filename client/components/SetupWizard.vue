@@ -44,7 +44,6 @@
             key="auth"
             :saving="saving"
             @complete="handleComplete"
-            @skip="handleSkip"
           />
 
           <!-- 完成步骤 -->
@@ -108,11 +107,6 @@ const handleComplete = () => {
   currentStep.value = 2
 }
 
-// 跳过用户绑定
-const handleSkip = () => {
-  currentStep.value = 2
-}
-
 // 完成设置
 const finishSetup = async () => {
   try {
@@ -127,13 +121,14 @@ const finishSetup = async () => {
 
 <style scoped>
 .setup-wizard {
-  position: fixed;
+  /* 只覆盖当前插件区域，不阻碍其他 Koishi 界面访问 */
+  position: absolute;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
   background: var(--k-color-bg-1);
-  z-index: 9999;
+  z-index: 100;
   display: flex;
   align-items: center;
   justify-content: center;

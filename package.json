@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-media-luna",
   "description": "ai media生成插件",
-  "version": "0.0.77",
+  "version": "0.0.88",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
   "exports": {
@@ -40,6 +40,9 @@
     "middleware",
     "chatluna"
   ],
+  "dependencies": {
+    "@initencounter/vits": "^0.0.3"
+  },
   "devDependencies": {
     "@koishijs/client": "^5.30.0",
     "@koishijs/plugin-console": "^5.30.0",

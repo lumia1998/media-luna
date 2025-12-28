@@ -1,4 +1,4 @@
-// Koishi 指令插件入口
+// Koishi 聊天指令插件入口
 // 注册渠道名指令，支持收集模式
 
 import { definePlugin } from '../../core'
@@ -21,7 +21,7 @@ interface CollectState {
 
 export default definePlugin({
   id: 'koishi-commands',
-  name: 'Koishi 指令',
+  name: 'Koishi 聊天指令',
   description: '注册 Koishi 聊天指令，支持预设查询',
   version: '1.0.0',
 
@@ -313,7 +313,7 @@ export default definePlugin({
             const channelName = channelMap.get(task.channelId) || `渠道#${task.channelId}`
             const statusText = task.status === 'success' ? '✅' : task.status === 'failed' ? '❌' : '⏳'
 
-            lines.push(`${statusText} [${task.id}] ${channelName}`)
+            lines.push(`${statusText}「${task.id}」${channelName}`)
             lines.push(`时间: ${new Date(task.startTime).toLocaleString()}`)
 
             if (task.duration) {
@@ -369,7 +369,7 @@ export default definePlugin({
 
           const task = await taskService.getById(taskId)
           if (!task) {
-            return `未找到任务 #${taskId}`
+            return `未找到任务「${taskId}」`
           }
 
           // 检查权限：只能查看自己的任务（管理员除外）
@@ -397,7 +397,7 @@ export default definePlugin({
 
           const basicLines: string[] = []
           basicLines.push('━━━━━━━━━━━━━━')
-          basicLines.push(`📋 任务 #${task.id}`)
+          basicLines.push(`📋 任务「${task.id}」`)
           basicLines.push('━━━━━━━━━━━━━━')
           basicLines.push(`状态: ${statusText}`)
           basicLines.push(`渠道: ${channelName}`)
@@ -554,12 +554,15 @@ function registerChannelCommand(
   config: KoishiCommandsConfig,
   logger: any
 ): () => void {
-  // 构建预设名集合（小写）用于匹配
-  const presetNamesLower = new Set(presets.map((p: any) => p.name.toLowerCase()))
-  // 保存原始预设名映射
-  const presetNameMap = new Map(presets.map((p: any) => [p.name.toLowerCase(), p.name]))
+  // 检查渠道是否需要收集模式
+  // 只有带 img2img 或 img2video 标签的渠道才需要收集图片输入
+  const channelTags: string[] = channel.tags || []
+  const needsImageInput = channelTags.some((tag: string) =>
+    tag.startsWith('img2')
+  )
 
   // 注册渠道指令（使用 rest 参数捕获所有输入）
+  // 注意：presets 参数仅用于初始 usage 显示，实际预设匹配在执行时实时查询
   const channelCmd = ctx.command(`${channel.name} [...rest:string]`, `${channel.name} 生成`)
     .option('image', '-i <url:string> 输入图片URL')
     .usage(`用法: ${channel.name} [预设名] <提示词>\n可用预设: ${presets.map((p: any) => p.name).join(', ') || '无'}`)
@@ -603,17 +606,28 @@ function registerChannelCommand(
         await extractor.fetchImage(options.image, 'input')
       }
 
+      // 如果渠道不需要图片输入（纯 text2xxx 类型），直接生成
+      if (!needsImageInput) {
+        // 只要有提示词就可以生成
+        if (state.prompts.length === 0 && state.files.length === 0) {
+          return '请输入提示词'
+        }
+        return executeGenerateWithPresetCheck(ctx, session, channel, state, mediaLuna)
+      }
+
+      // 以下是需要图片输入的渠道（img2xxx 类型）
+
       // 判断是否直接触发
       if (state.files.length >= config.directTriggerImageCount) {
         // 图片数量足够，直接生成
-        return executeGenerateWithPresetCheck(ctx, session, channel, state, presetNamesLower, presetNameMap, mediaLuna)
+        return executeGenerateWithPresetCheck(ctx, session, channel, state, mediaLuna)
       }
 
       // 进入收集模式
-      return enterCollectMode(ctx, session, channel, state, presetNamesLower, presetNameMap, config, mediaLuna, logger)
+      return enterCollectMode(ctx, session, channel, state, config, mediaLuna, logger)
     })
 
-  logger.debug(`Registered command: ${channel.name} (${presets.length} presets available)`)
+  logger.debug(`Registered command: ${channel.name} (needsImageInput: ${needsImageInput}, ${presets.length} presets)`)
   return () => channelCmd.dispose()
 }
 
@@ -785,16 +799,24 @@ class MessageExtractor {
 /**
  * 解析预设名并执行生成
  * 从 prompts 的第一个词判断是否为预设名
+ * 预设列表在执行时实时查询，确保新增预设能被识别
  */
 async function executeGenerateWithPresetCheck(
   ctx: any,
   session: Session | undefined,
   channel: any,
   state: CollectState,
-  presetNamesLower: Set<string>,
-  presetNameMap: Map<string, string>,
   mediaLuna: any
 ): Promise<string> {
+  // 实时获取该渠道匹配的预设列表（基于渠道标签与预设标签匹配）
+  const combinations = await mediaLuna.getChannelPresetCombinations()
+  const channelCombo = combinations.find((c: any) => c.channel.id === channel.id)
+  const presets: any[] = channelCombo?.presets || []
+
+  // 构建预设名集合和映射
+  const presetNamesLower = new Set(presets.map((p: any) => p.name.toLowerCase()))
+  const presetNameMap = new Map(presets.map((p: any) => [p.name.toLowerCase(), p.name]))
+
   // 合并所有提示词
   const fullPrompt = state.prompts.join(' ').trim()
   const words = fullPrompt.split(/\s+/)
@@ -836,14 +858,13 @@ async function executeGenerateWithPresetCheck(
 /**
  * 进入收集模式
  * 使用中间件捕获完整消息（包括图片）
+ * 预设列表在执行生成时实时查询
  */
 async function enterCollectMode(
   ctx: any,
   session: Session | undefined,
   channel: any,
   state: CollectState,
-  presetNamesLower: Set<string>,
-  presetNameMap: Map<string, string>,
   config: KoishiCommandsConfig,
   mediaLuna: any,
   logger: any
@@ -913,8 +934,7 @@ async function enterCollectMode(
 
         // 开始生成（带预设检查）
         const result = await executeGenerateWithPresetCheck(
-          ctx, session, channel, state,
-          presetNamesLower, presetNameMap, mediaLuna
+          ctx, session, channel, state, mediaLuna
         )
         resolve(result)
         return
@@ -1036,7 +1056,7 @@ function formatResult(result: GenerationResult): string {
 
   // 任务 ID 放在最开始
   if (result.taskId) {
-    messages.push(`[${result.taskId}]`)
+    messages.push(`「${result.taskId}」`)
   }
 
   if (!result.success) {

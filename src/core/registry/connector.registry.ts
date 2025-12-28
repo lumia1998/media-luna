@@ -65,13 +65,15 @@ export class ConnectorRegistry {
     supportedTypes: string[]
     fields: any[]
     cardFields: any[]
+    defaultTags: string[]
   }> {
     return this.list().map(c => ({
       id: c.id,
       name: c.name,
       supportedTypes: c.supportedTypes,
       fields: c.fields,
-      cardFields: c.cardFields || []
+      cardFields: c.cardFields || [],
+      defaultTags: c.defaultTags || []
     }))
   }
 

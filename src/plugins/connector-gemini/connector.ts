@@ -19,6 +19,7 @@ async function generate(
     aspectRatio,
     imageSize,
     enableGoogleSearch,
+    filterThoughtImages = true,
     timeout = 600
   } = config
 
@@ -112,6 +113,11 @@ async function generate(
       const parts = candidate.content?.parts || []
 
       for (const part of parts) {
+        // 过滤思考过程的图片（thought: true 标记的 parts）
+        if (filterThoughtImages && part.thought) {
+          continue
+        }
+
         // 处理内联图片数据
         if (part.inlineData) {
           const mimeType = part.inlineData.mimeType || 'image/png'
@@ -160,6 +166,7 @@ export const GeminiConnector: ConnectorDefinition = {
   supportedTypes: ['image'],
   fields: connectorFields,
   cardFields: connectorCardFields,
+  defaultTags: ['text2img', 'img2img', 'text2video', 'img2video', 'text2audio'],
   generate,
 
   /** 获取请求日志 */

@@ -136,6 +136,7 @@ export const MidjourneyConnector: ConnectorDefinition = {
   supportedTypes: ['image'],
   fields: connectorFields,
   cardFields: connectorCardFields,
+  defaultTags: ['text2img', 'img2img'],
   generate,
 
   getRequestLog(config, files, prompt): ConnectorRequestLog {

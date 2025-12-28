@@ -326,6 +326,7 @@ export const ChatApiConnector: ConnectorDefinition = {
   supportedTypes: ['image', 'audio', 'video'],
   fields: connectorFields,
   cardFields: connectorCardFields,
+  defaultTags: ['text2img', 'img2img', 'text2video', 'img2video', 'text2audio'],
   generate,
 
   /** 获取请求日志 */

@@ -47,16 +47,82 @@
       >
         测试连接
       </k-button>
-      <k-button type="primary" :loading="saving" :disabled="loading" @click="handleNext">
+      <k-button type="primary" :loading="saving" :disabled="loading" @click="handleNextClick">
         下一步
       </k-button>
     </div>
+
+    <!-- 上传验证弹窗 -->
+    <el-dialog
+      v-model="showUploadDialog"
+      title="验证存储配置"
+      width="500px"
+      :close-on-click-modal="false"
+      class="upload-verify-dialog"
+    >
+      <div class="upload-verify-content">
+        <p class="verify-desc">请上传一张测试图片，验证存储配置是否正确。上传成功后图片将显示在下方。</p>
+
+        <!-- 上传区域 -->
+        <div
+          class="upload-area"
+          :class="{ dragging: isDragging, 'has-image': !!uploadedImageUrl }"
+          @dragover.prevent="isDragging = true"
+          @dragleave="isDragging = false"
+          @drop.prevent="handleDrop"
+          @click="triggerFileInput"
+        >
+          <input
+            ref="fileInputRef"
+            type="file"
+            accept="image/*"
+            style="display: none"
+            @change="handleFileSelect"
+          />
+          <template v-if="uploadedImageUrl">
+            <img :src="uploadedImageUrl" class="preview-image" alt="预览" />
+            <div class="image-overlay">
+              <k-icon name="check-circle" class="success-icon" />
+              <span>上传成功，图片可正常显示</span>
+            </div>
+          </template>
+          <template v-else-if="uploading">
+            <k-icon name="sync" class="spin upload-icon" />
+            <span>上传中...</span>
+          </template>
+          <template v-else>
+            <k-icon name="upload" class="upload-icon" />
+            <span>点击或拖拽图片到此处</span>
+          </template>
+        </div>
+
+        <!-- 上传错误提示 -->
+        <div v-if="uploadError" class="upload-error">
+          <k-icon name="times-circle" />
+          <span>{{ uploadError }}</span>
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="dialog-footer">
+          <k-button @click="showUploadDialog = false">取消</k-button>
+          <k-button
+            type="primary"
+            :disabled="!uploadedImageUrl"
+            @click="confirmAndProceed"
+          >
+            确认并继续
+          </k-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, watch, onMounted } from 'vue'
 import { setupApi, cacheApi } from '../../api'
+import { message } from '@koishijs/client'
 import type { ConfigField } from '../../types'
 import ConfigRenderer from '../ConfigRenderer.vue'
 
@@ -77,6 +143,14 @@ const localConfig = ref<Record<string, any>>({})
 // 测试状态
 const testing = ref(false)
 const testResult = ref<{ success: boolean, message: string, backend?: string, duration?: number } | null>(null)
+
+// 上传验证弹窗状态
+const showUploadDialog = ref(false)
+const uploading = ref(false)
+const uploadedImageUrl = ref('')
+const uploadError = ref('')
+const isDragging = ref(false)
+const fileInputRef = ref<HTMLInputElement | null>(null)
 
 // 同步 localConfig 到父组件
 watch(localConfig, (newVal) => {
@@ -112,7 +186,96 @@ const loadConfig = async () => {
   }
 }
 
-const handleNext = () => {
+// 点击下一步按钮
+const handleNextClick = async () => {
+  // 如果选择"不使用"，直接进入下一步
+  if (localConfig.value.backend === 'none') {
+    emit('next')
+    return
+  }
+
+  // 先保存配置
+  try {
+    await setupApi.updateStorageConfig(localConfig.value)
+  } catch (e) {
+    message.error('保存配置失败: ' + (e instanceof Error ? e.message : '未知错误'))
+    return
+  }
+
+  // 显示上传验证弹窗
+  showUploadDialog.value = true
+  uploadedImageUrl.value = ''
+  uploadError.value = ''
+}
+
+// 触发文件选择
+const triggerFileInput = () => {
+  if (uploading.value) return
+  fileInputRef.value?.click()
+}
+
+// 处理文件选择
+const handleFileSelect = (e: Event) => {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (file) {
+    uploadFile(file)
+  }
+  // 清空 input 以便可以再次选择同一文件
+  input.value = ''
+}
+
+// 处理拖放
+const handleDrop = (e: DragEvent) => {
+  isDragging.value = false
+  const file = e.dataTransfer?.files?.[0]
+  if (file && file.type.startsWith('image/')) {
+    uploadFile(file)
+  } else {
+    uploadError.value = '请拖放图片文件'
+  }
+}
+
+// 上传文件
+const uploadFile = async (file: File) => {
+  uploading.value = true
+  uploadError.value = ''
+  uploadedImageUrl.value = ''
+
+  try {
+    // 读取文件为 base64
+    const reader = new FileReader()
+    const base64 = await new Promise<string>((resolve, reject) => {
+      reader.onload = () => {
+        const result = reader.result as string
+        // 移除 data:xxx;base64, 前缀
+        const base64Data = result.split(',')[1]
+        resolve(base64Data)
+      }
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+
+    // 调用上传 API
+    const result = await cacheApi.upload(base64, file.type, file.name)
+
+    // 使用返回的 URL 显示图片
+    if (result.url) {
+      uploadedImageUrl.value = result.url
+      message.success('上传成功')
+    } else {
+      throw new Error('上传成功但未返回有效 URL')
+    }
+  } catch (e: any) {
+    uploadError.value = e.message || '上传失败'
+  } finally {
+    uploading.value = false
+  }
+}
+
+// 确认并继续
+const confirmAndProceed = () => {
+  showUploadDialog.value = false
   emit('next')
 }
 
@@ -248,5 +411,97 @@ onMounted(loadConfig)
   margin-top: 0.25rem !important;
   color: var(--k-color-text-description) !important;
   font-size: 0.85rem !important;
+}
+
+/* 上传验证弹窗 */
+.upload-verify-content {
+  padding: 0.5rem 0;
+}
+
+.verify-desc {
+  margin: 0 0 1.5rem 0;
+  color: var(--k-color-text-description);
+  font-size: 0.95rem;
+}
+
+.upload-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  min-height: 200px;
+  border: 2px dashed var(--k-color-border);
+  border-radius: 12px;
+  background: var(--k-color-bg-2);
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+
+.upload-area:hover {
+  border-color: var(--k-color-active);
+  background: color-mix(in srgb, var(--k-color-active) 5%, var(--k-color-bg-2));
+}
+
+.upload-area.dragging {
+  border-color: var(--k-color-active);
+  background: color-mix(in srgb, var(--k-color-active) 10%, var(--k-color-bg-2));
+}
+
+.upload-area.has-image {
+  border-style: solid;
+  border-color: var(--k-color-success);
+}
+
+.upload-icon {
+  font-size: 2.5rem;
+  color: var(--k-color-text-description);
+}
+
+.preview-image {
+  max-width: 100%;
+  max-height: 200px;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+.image-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 0.75rem;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  color: white;
+  font-size: 0.9rem;
+}
+
+.success-icon {
+  color: var(--k-color-success);
+}
+
+.upload-error {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  background: color-mix(in srgb, var(--k-color-danger) 10%, transparent);
+  border: 1px solid var(--k-color-danger);
+  border-radius: 8px;
+  color: var(--k-color-danger);
+  font-size: 0.9rem;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
 }
 </style>

@@ -191,6 +191,7 @@ export const ComfyUIConnector: ConnectorDefinition = {
   supportedTypes: ['image'],
   fields: connectorFields,
   cardFields: connectorCardFields,
+  defaultTags: ['text2img', 'img2img', 'text2video', 'img2video'],
   generate,
 
   getRequestLog(config, files, prompt): ConnectorRequestLog {

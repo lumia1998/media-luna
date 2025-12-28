@@ -69,8 +69,8 @@
 
           <div class="form-group">
             <label class="form-label">标签</label>
-            <TagInput v-model="form.tags!" placeholder="输入标签后按回车..." />
-            <div class="form-hint">用于分类和筛选渠道</div>
+            <TagInput v-model="form.tags!" :suggestions="tagSuggestions" placeholder="选择或输入标签..." />
+            <div class="form-hint">用于分类和筛选渠道，标签与预设匹配后才能使用对应预设</div>
           </div>
 
           <!-- 连接器配置（内嵌） -->
@@ -431,6 +431,18 @@ const pluginsWithConfig = computed(() => {
   return allPlugins.value.filter(p => p.configFields && p.configFields.length > 0)
 })
 
+// 预置标签选项
+const PRESET_TAGS = ['text2img', 'img2img', 'text2video', 'img2video', 'text2audio']
+
+// 标签建议（合并预置标签和当前连接器的默认标签）
+const tagSuggestions = computed(() => {
+  const connector = connectors.value.find(c => c.id === form.value.connectorId)
+  const connectorTags = (connector as any)?.defaultTags || []
+  // 合并预置标签和连接器标签，去重
+  const allTags = new Set([...PRESET_TAGS, ...connectorTags])
+  return Array.from(allTags)
+})
+
 // ============ 远程选项相关方法 ============
 
 // 构建带参数的缓存 key
@@ -609,6 +621,16 @@ const shouldShowOverrideField = (plugin: PluginInfo, field: FieldDefinition) => 
 
 const handleConnectorChange = async (connectorId: string) => {
   form.value.connectorConfig = {}
+
+  // 仅在创建新渠道时自动填充连接器默认标签
+  if (!isEdit.value && connectorId) {
+    const connector = connectors.value.find(c => c.id === connectorId)
+    const defaultTags = (connector as any)?.defaultTags || []
+    if (defaultTags.length > 0) {
+      form.value.tags = [...defaultTags]
+    }
+  }
+
   if (connectorId && !connectorFields.value[connectorId]) {
     try {
       const fields = await connectorApi.fields(connectorId)

@@ -1,8 +1,8 @@
-// Koishi 指令配置
+// Koishi 聊天指令配置
 
 import type { ConfigField } from '../../types'
 
-/** Koishi 指令插件配置 */
+/** Koishi 聊天指令插件配置 */
 export interface KoishiCommandsConfig {
   /** 是否启用指令注册 */
   enabled: boolean

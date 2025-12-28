@@ -376,9 +376,17 @@ watch(() => props.modelValue, (newVal, oldVal) => {
   }
 }, { deep: true })
 
-// 获取字段值
+// 获取字段值（支持默认值 fallback）
 const getFieldValue = (key: string) => {
-  return getNestedValue(props.modelValue, key)
+  const value = getNestedValue(props.modelValue, key)
+  // 如果值为 undefined 或 null，尝试使用字段定义的默认值
+  if (value === undefined || value === null) {
+    const field = props.fields.find(f => f.key === key)
+    if (field?.default !== undefined) {
+      return field.default
+    }
+  }
+  return value
 }
 
 // 设置字段值

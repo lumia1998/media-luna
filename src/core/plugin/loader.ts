@@ -616,7 +616,8 @@ export class PluginLoader {
    * 从配置加载所有外部插件
    */
   async loadExternalPlugins(): Promise<void> {
-    const externalPlugins = this._configService.get<string[]>('externalPlugins', [])
+    // 获取外部插件列表，兼容旧格式（直接数组）和新格式（{ list: [] }）
+    const externalPlugins = this.getExternalPluginsList()
 
     if (externalPlugins.length === 0) {
       return
@@ -634,6 +635,34 @@ export class PluginLoader {
   }
 
   /**
+   * 获取外部插件列表（兼容新旧格式）
+   */
+  private getExternalPluginsList(): string[] {
+    const rawConfig = this._configService.get<any>('externalPlugins', { list: [] })
+
+    // 新格式：{ list: string[] }
+    if (rawConfig && Array.isArray(rawConfig.list)) {
+      return rawConfig.list
+    }
+
+    // 旧格式：直接是数组（虽然 ConfigService.get 不支持，但配置文件可能手动编辑过）
+    if (Array.isArray(rawConfig)) {
+      // 迁移到新格式
+      this._configService.set('externalPlugins', { list: rawConfig })
+      return rawConfig
+    }
+
+    return []
+  }
+
+  /**
+   * 设置外部插件列表
+   */
+  private setExternalPluginsList(plugins: string[]): void {
+    this._configService.set('externalPlugins', { list: plugins })
+  }
+
+  /**
    * 添加外部插件到配置并加载
    */
   async addExternalPlugin(moduleName: string): Promise<void> {
@@ -641,10 +670,10 @@ export class PluginLoader {
     await this.loadExternal(moduleName)
 
     // 加载成功后添加到配置
-    const externalPlugins = this._configService.get<string[]>('externalPlugins', [])
+    const externalPlugins = this.getExternalPluginsList()
     if (!externalPlugins.includes(moduleName)) {
       externalPlugins.push(moduleName)
-      this._configService.set('externalPlugins', externalPlugins)
+      this.setExternalPluginsList(externalPlugins)
     }
   }
 
@@ -661,11 +690,11 @@ export class PluginLoader {
     }
 
     // 从配置移除
-    const externalPlugins = this._configService.get<string[]>('externalPlugins', [])
+    const externalPlugins = this.getExternalPluginsList()
     const index = externalPlugins.indexOf(moduleName)
     if (index !== -1) {
       externalPlugins.splice(index, 1)
-      this._configService.set('externalPlugins', externalPlugins)
+      this.setExternalPluginsList(externalPlugins)
     }
   }
 

@@ -60,6 +60,13 @@ export const connectorFields: ConnectorField[] = [
     description: '启用后模型可使用 Google 搜索获取实时信息'
   },
   {
+    key: 'filterThoughtImages',
+    label: '过滤思考图片',
+    type: 'boolean',
+    default: true,
+    description: '高分辨率请求时，API 会返回思考过程的临时图片，启用后自动过滤这些图片，只保留最终结果'
+  },
+  {
     key: 'timeout',
     label: '超时时间（秒）',
     type: 'number',

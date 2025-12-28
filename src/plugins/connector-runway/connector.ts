@@ -117,6 +117,7 @@ export const RunwayConnector: ConnectorDefinition = {
   supportedTypes: ['video'],
   fields: connectorFields,
   cardFields: connectorCardFields,
+  defaultTags: ['text2video', 'img2video'],
   generate,
 
   getRequestLog(config, files, prompt): ConnectorRequestLog {
