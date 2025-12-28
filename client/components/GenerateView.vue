@@ -79,7 +79,7 @@
             <div class="form-actions">
               <k-button solid type="primary" :loading="generating" @click="generate" class="generate-btn">
                 <template #icon><k-icon name="magic"></k-icon></template>
-                生成图片
+                开始生成
               </k-button>
             </div>
           </k-card>
@@ -123,7 +123,25 @@
                   </template>
                   <!-- 音频 -->
                   <template v-else-if="asset.kind === 'audio'">
-                    <audio :src="asset.url" controls class="output-audio" />
+                    <div class="audio-card">
+                      <div class="audio-visual">
+                        <div class="audio-icon-large">
+                          <k-icon name="volume-up"></k-icon>
+                          <span v-if="asset.url && getMediaDuration(asset.url)" class="audio-duration-large">{{ getMediaDuration(asset.url!) }}</span>
+                        </div>
+                      </div>
+                      <audio
+                        :src="asset.url"
+                        controls
+                        class="output-audio"
+                        @loadedmetadata="asset.url && handleMediaMetadata($event, asset.url)"
+                      />
+                      <div class="output-actions">
+                        <a :href="asset.url" target="_blank" class="action-btn" download>
+                          <k-icon name="download"></k-icon>
+                        </a>
+                      </div>
+                    </div>
                   </template>
                   <!-- 其他文件 -->
                   <template v-else-if="asset.kind === 'file'">
@@ -245,6 +263,31 @@ const formatElapsedTime = (ms: number) => {
   const minutes = Math.floor(seconds / 60)
   const remainingSeconds = (seconds % 60).toFixed(0)
   return `${minutes}m ${remainingSeconds}s`
+}
+
+// 媒体时长缓存 (key: url, value: duration in seconds)
+const mediaDurations = ref<Record<string, number>>({})
+
+/** 处理媒体加载元数据事件，获取时长 */
+const handleMediaMetadata = (e: Event, url: string) => {
+  const media = e.target as HTMLAudioElement | HTMLVideoElement
+  if (media.duration && isFinite(media.duration)) {
+    mediaDurations.value[url] = media.duration
+  }
+}
+
+/** 获取媒体时长显示 */
+const getMediaDuration = (url: string) => {
+  const duration = mediaDurations.value[url]
+  return duration ? formatMediaDuration(duration) : ''
+}
+
+/** 格式化媒体时长（秒 -> mm:ss） */
+const formatMediaDuration = (seconds: number) => {
+  if (!seconds || seconds <= 0) return ''
+  const mins = Math.floor(seconds / 60)
+  const secs = Math.floor(seconds % 60)
+  return mins > 0 ? `${mins}:${secs.toString().padStart(2, '0')}` : `0:${secs.toString().padStart(2, '0')}`
 }
 
 // 开始计时
@@ -781,6 +824,82 @@ onUnmounted(() => {
 .output-wrapper audio {
   width: 100%;
   display: block;
+}
+
+/* Audio Card */
+.audio-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.audio-visual {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background: linear-gradient(145deg, rgba(103, 194, 58, 0.1), rgba(64, 158, 255, 0.1));
+}
+
+.audio-icon-large {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(103, 194, 58, 0.25), rgba(64, 158, 255, 0.25));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--k-color-success, #67c23a);
+  font-size: 1.75rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 16px rgba(103, 194, 58, 0.15);
+}
+
+.audio-duration-large {
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-top: 2px;
+  color: var(--k-color-success, #67c23a);
+}
+
+.output-wrapper:hover .audio-icon-large {
+  transform: scale(1.1);
+  box-shadow: 0 6px 24px rgba(103, 194, 58, 0.25);
+}
+
+.output-audio {
+  width: 100%;
+  height: 40px;
+  background: var(--k-color-bg-2);
+}
+
+.audio-card .output-actions {
+  opacity: 1;
+  background: transparent;
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  bottom: auto;
+  left: auto;
+  padding: 0;
+}
+
+.audio-card .action-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.audio-card .action-btn:hover {
+  background: rgba(0, 0, 0, 0.7);
+  transform: scale(1.1);
 }
 
 .output-actions {

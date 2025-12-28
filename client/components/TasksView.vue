@@ -225,6 +225,17 @@
                   />
                   <div v-else-if="asset.kind === 'video'" class="output-thumb video-thumb">
                     <k-icon name="play"></k-icon>
+                    <span v-if="asset.meta?.duration" class="media-duration">{{ formatMediaDuration(asset.meta.duration) }}</span>
+                  </div>
+                  <div v-else-if="asset.kind === 'audio'" class="output-thumb audio-thumb">
+                    <k-icon name="volume-up"></k-icon>
+                    <span v-if="asset.meta?.duration" class="media-duration">{{ formatMediaDuration(asset.meta.duration) }}</span>
+                  </div>
+                  <div v-else-if="asset.kind === 'text'" class="output-thumb text-thumb">
+                    <k-icon name="file-text"></k-icon>
+                  </div>
+                  <div v-else-if="asset.kind === 'file'" class="output-thumb file-thumb">
+                    <k-icon name="file"></k-icon>
                   </div>
                 </template>
                 <span v-if="row.responseSnapshot.length > 3" class="output-more">
@@ -292,7 +303,20 @@
                   @mouseenter="($event.target as HTMLVideoElement).play()"
                   @mouseleave="($event.target as HTMLVideoElement).pause()"
                 />
-                <div class="gallery-overlay">
+                <div v-else-if="item.kind === 'audio'" class="gallery-audio">
+                  <div class="audio-icon-wrapper">
+                    <k-icon name="volume-up"></k-icon>
+                    <span v-if="getMediaDuration(item.url)" class="audio-duration-badge">{{ getMediaDuration(item.url) }}</span>
+                  </div>
+                  <audio
+                    :src="item.url"
+                    controls
+                    class="gallery-audio-player"
+                    @click.stop
+                    @loadedmetadata="handleMediaMetadata($event, item.url)"
+                  />
+                </div>
+                <div v-if="item.kind !== 'audio'" class="gallery-overlay">
                   <k-icon name="zoom-in" class="zoom-icon"></k-icon>
                 </div>
               </div>
@@ -519,6 +543,23 @@ const filter = ref({
   channelId: undefined as number | undefined
 })
 
+// 媒体时长缓存 (key: url, value: duration in seconds)
+const mediaDurations = ref<Record<string, number>>({})
+
+/** 处理媒体加载元数据事件，获取时长 */
+const handleMediaMetadata = (e: Event, url: string) => {
+  const media = e.target as HTMLAudioElement | HTMLVideoElement
+  if (media.duration && isFinite(media.duration)) {
+    mediaDurations.value[url] = media.duration
+  }
+}
+
+/** 获取媒体时长显示 */
+const getMediaDuration = (url: string) => {
+  const duration = mediaDurations.value[url]
+  return duration ? formatMediaDuration(duration) : ''
+}
+
 // 渠道列表（用于下拉筛选）
 const channels = ref<ChannelConfig[]>([])
 
@@ -578,12 +619,13 @@ const getDeletePromptPreview = (task: TaskData): string => {
 interface GalleryItem {
   id: number
   assetIndex: number
-  kind: 'image' | 'video'
+  kind: 'image' | 'video' | 'audio'
   url: string
   prompt: string
   channelId: number
   createdAt: string
   uid: number | null
+  duration?: number  // 媒体时长（秒）
 }
 
 // 从任务列表提取画廊项目
@@ -597,9 +639,9 @@ const galleryItems = computed<GalleryItem[]>(() => {
       || task.requestSnapshot?.prompt
       || ''
 
-    // 从 responseSnapshot 中提取图片/视频 URL
+    // 从 responseSnapshot 中提取图片/视频/音频 URL
     task.responseSnapshot.forEach((asset, assetIndex) => {
-      if ((asset.kind === 'image' || asset.kind === 'video') && asset.url) {
+      if ((asset.kind === 'image' || asset.kind === 'video' || asset.kind === 'audio') && asset.url) {
         items.push({
           id: task.id,
           assetIndex,
@@ -608,7 +650,8 @@ const galleryItems = computed<GalleryItem[]>(() => {
           prompt: finalPrompt,
           channelId: task.channelId,
           createdAt: task.startTime,
-          uid: task.uid
+          uid: task.uid,
+          duration: asset.meta?.duration
         })
       }
     })
@@ -836,6 +879,14 @@ const formatDate = (dateStr: string) => {
 const formatDuration = (ms: number) => {
   if (ms < 1000) return `${ms}ms`
   return `${(ms / 1000).toFixed(2)}s`
+}
+
+/** 格式化媒体时长（秒 -> mm:ss） */
+const formatMediaDuration = (seconds: number) => {
+  if (!seconds || seconds <= 0) return ''
+  const mins = Math.floor(seconds / 60)
+  const secs = Math.floor(seconds % 60)
+  return mins > 0 ? `${mins}:${secs.toString().padStart(2, '0')}` : `0:${secs.toString().padStart(2, '0')}`
 }
 
 const handleImageError = (e: Event) => {
@@ -1169,9 +1220,47 @@ onMounted(() => {
 
 .video-thumb {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   color: var(--k-color-text-description);
+  font-size: 14px;
+  position: relative;
+}
+
+.audio-thumb {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(103, 194, 58, 0.15), rgba(64, 158, 255, 0.15));
+  color: var(--k-color-success, #67c23a);
+  font-size: 14px;
+  position: relative;
+}
+
+.media-duration {
+  font-size: 8px;
+  font-weight: 500;
+  margin-top: 2px;
+  opacity: 0.9;
+}
+
+.text-thumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(144, 147, 153, 0.1);
+  color: var(--k-color-text-description);
+  font-size: 14px;
+}
+
+.file-thumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(64, 158, 255, 0.1);
+  color: var(--k-color-active, #409eff);
   font-size: 14px;
 }
 
@@ -1213,6 +1302,56 @@ onMounted(() => {
 .gallery-item:hover .gallery-image,
 .gallery-item:hover .gallery-video {
   transform: scale(1.03);
+}
+
+/* Gallery Audio Card */
+.gallery-audio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem 1rem;
+  min-height: 120px;
+  background: linear-gradient(145deg, rgba(103, 194, 58, 0.08), rgba(64, 158, 255, 0.08));
+}
+
+.audio-icon-wrapper {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(103, 194, 58, 0.2), rgba(64, 158, 255, 0.2));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.75rem;
+  color: var(--k-color-success, #67c23a);
+  font-size: 1.25rem;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.audio-duration-badge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  margin-top: 2px;
+  color: var(--k-color-success, #67c23a);
+}
+
+.gallery-item:hover .audio-icon-wrapper {
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(103, 194, 58, 0.2);
+}
+
+.gallery-audio-player {
+  width: 100%;
+  height: 32px;
+  border-radius: 16px;
+}
+
+/* Custom audio player styling */
+.gallery-audio-player::-webkit-media-controls-panel {
+  background: var(--k-color-bg-2);
 }
 
 .gallery-overlay {

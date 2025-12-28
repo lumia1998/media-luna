@@ -45,17 +45,56 @@
           :class="{ clickable: task.status === 'success' }"
           @click="handleTaskClick(task)"
         >
-          <!-- 图片区域 - 只显示第一张 -->
-          <div class="task-image-wrapper" v-if="task.images && task.images.length > 0">
-            <img
-              :src="task.images[0]"
-              class="task-image"
-              loading="lazy"
-            />
-            <div v-if="task.images.length > 1" class="more-images">
-              +{{ task.images.length - 1 }}
+          <!-- 媒体区域 -->
+          <template v-if="task.media && task.media.length > 0">
+            <!-- 图片 -->
+            <div class="task-image-wrapper" v-if="task.media[0].kind === 'image'">
+              <img
+                :src="task.media[0].url"
+                class="task-image"
+                loading="lazy"
+              />
+              <div v-if="task.media.length > 1" class="more-images">
+                +{{ task.media.length - 1 }}
+              </div>
             </div>
-          </div>
+            <!-- 视频 -->
+            <div class="task-video-wrapper" v-else-if="task.media[0].kind === 'video'">
+              <video
+                :src="task.media[0].url"
+                class="task-video"
+                muted
+                loop
+                @mouseenter="($event.target as HTMLVideoElement).play()"
+                @mouseleave="($event.target as HTMLVideoElement).pause()"
+              />
+              <div class="media-type-badge video-badge">
+                <k-icon name="play"></k-icon>
+              </div>
+              <div v-if="task.media.length > 1" class="more-images">
+                +{{ task.media.length - 1 }}
+              </div>
+            </div>
+            <!-- 音频 -->
+            <div class="task-audio-wrapper" v-else-if="task.media[0].kind === 'audio'">
+              <div class="audio-preview">
+                <div class="audio-icon-circle">
+                  <k-icon name="volume-up"></k-icon>
+                  <span v-if="getMediaDuration(task.media[0].url)" class="audio-duration-text">{{ getMediaDuration(task.media[0].url) }}</span>
+                </div>
+              </div>
+              <audio
+                :src="task.media[0].url"
+                controls
+                class="task-audio-player"
+                @click.stop
+                @loadedmetadata="handleMediaMetadata($event, task.media[0].url)"
+              />
+              <div v-if="task.media.length > 1" class="more-images audio-more">
+                +{{ task.media.length - 1 }}
+              </div>
+            </div>
+          </template>
 
           <!-- 处理中动画 -->
           <div v-else-if="task.status === 'processing' || task.status === 'pending'" class="task-processing">
@@ -90,10 +129,10 @@
       </div>
     </div>
 
-    <!-- 图片预览弹窗 -->
+    <!-- 媒体预览弹窗 -->
     <ImageLightbox
       v-model:visible="lightboxVisible"
-      :images="lightboxImages"
+      :media="lightboxMedia"
       :initial-index="lightboxIndex"
       :prompt="lightboxPrompt"
       :created-at="lightboxCreatedAt"
@@ -108,11 +147,17 @@ import { taskApi, authApi } from '../api'
 import type { TaskData } from '../types'
 import ImageLightbox from './ImageLightbox.vue'
 
+interface MediaItem {
+  kind: 'image' | 'video' | 'audio'
+  url: string
+}
+
 interface TaskItem {
   id: number
   status: 'pending' | 'processing' | 'success' | 'failed'
   prompt: string
-  images: string[]
+  images: string[]  // 保持兼容
+  media: MediaItem[]  // 新增：所有媒体
   createdAt: Date
   duration?: number
 }
@@ -134,11 +179,36 @@ let refreshTimer: ReturnType<typeof setInterval> | null = null
 
 // Lightbox 状态
 const lightboxVisible = ref(false)
-const lightboxImages = ref<string[]>([])
+const lightboxMedia = ref<MediaItem[]>([])
 const lightboxIndex = ref(0)
 const lightboxPrompt = ref('')
 const lightboxCreatedAt = ref<Date | undefined>()
 const lightboxDuration = ref<number | undefined>()
+
+// 媒体时长缓存 (key: url, value: duration in seconds)
+const mediaDurations = ref<Record<string, number>>({})
+
+/** 处理媒体加载元数据事件，获取时长 */
+const handleMediaMetadata = (e: Event, url: string) => {
+  const media = e.target as HTMLAudioElement | HTMLVideoElement
+  if (media.duration && isFinite(media.duration)) {
+    mediaDurations.value[url] = media.duration
+  }
+}
+
+/** 获取媒体时长显示 */
+const getMediaDuration = (url: string) => {
+  const duration = mediaDurations.value[url]
+  return duration ? formatMediaDuration(duration) : ''
+}
+
+/** 格式化媒体时长（秒 -> mm:ss） */
+const formatMediaDuration = (seconds: number) => {
+  if (!seconds || seconds <= 0) return ''
+  const mins = Math.floor(seconds / 60)
+  const secs = Math.floor(seconds % 60)
+  return mins > 0 ? `${mins}:${secs.toString().padStart(2, '0')}` : `0:${secs.toString().padStart(2, '0')}`
+}
 
 // 检查登录状态
 const checkAuth = async () => {
@@ -155,10 +225,18 @@ const checkAuth = async () => {
 // 转换任务数据
 const toTaskItem = (task: TaskData): TaskItem => {
   const images: string[] = []
+  const media: MediaItem[] = []
   if (task.responseSnapshot) {
     for (const asset of task.responseSnapshot) {
-      if (asset.kind === 'image' && asset.url) {
-        images.push(asset.url)
+      if (asset.url) {
+        if (asset.kind === 'image') {
+          images.push(asset.url)
+          media.push({ kind: 'image', url: asset.url })
+        } else if (asset.kind === 'video') {
+          media.push({ kind: 'video', url: asset.url })
+        } else if (asset.kind === 'audio') {
+          media.push({ kind: 'audio', url: asset.url })
+        }
       }
     }
   }
@@ -171,6 +249,7 @@ const toTaskItem = (task: TaskData): TaskItem => {
     status: task.status as TaskItem['status'],
     prompt: finalPrompt,
     images,
+    media,
     createdAt: new Date(task.startTime),
     duration: task.duration || undefined
   }
@@ -230,14 +309,17 @@ const refresh = async () => {
 
 // 点击任务
 const handleTaskClick = (task: TaskItem) => {
-  if (task.status === 'success' && task.images.length > 0) {
-    // 打开 lightbox 预览
-    lightboxImages.value = task.images
-    lightboxIndex.value = 0
-    lightboxPrompt.value = task.prompt
-    lightboxCreatedAt.value = task.createdAt
-    lightboxDuration.value = task.duration
-    lightboxVisible.value = true
+  if (task.status === 'success' && task.media.length > 0) {
+    // 支持图片、视频、音频预览
+    const previewableMedia = task.media.filter(m => ['image', 'video', 'audio'].includes(m.kind))
+    if (previewableMedia.length > 0) {
+      lightboxMedia.value = previewableMedia
+      lightboxIndex.value = 0
+      lightboxPrompt.value = task.prompt
+      lightboxCreatedAt.value = task.createdAt
+      lightboxDuration.value = task.duration
+      lightboxVisible.value = true
+    }
     // 同时触发 select 事件用于填充提示词
     emit('select', task)
   }
@@ -495,6 +577,92 @@ onUnmounted(() => {
   font-size: 0.7rem;
   padding: 0.15rem 0.4rem;
   border-radius: 4px;
+}
+
+.audio-more {
+  top: auto;
+  bottom: 40px;
+}
+
+/* 视频区域 */
+.task-video-wrapper {
+  position: relative;
+  width: 100%;
+  background-color: var(--k-color-bg-1);
+}
+
+.task-video {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.media-type-badge {
+  position: absolute;
+  left: 6px;
+  top: 6px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+}
+
+.video-badge {
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+}
+
+/* 音频区域 */
+.task-audio-wrapper {
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0;
+  background: linear-gradient(145deg, rgba(103, 194, 58, 0.08), rgba(64, 158, 255, 0.08));
+}
+
+.audio-preview {
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.audio-icon-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(103, 194, 58, 0.2), rgba(64, 158, 255, 0.2));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--k-color-success, #67c23a);
+  font-size: 1.1rem;
+  transition: all 0.3s ease;
+}
+
+.audio-duration-text {
+  font-size: 0.6rem;
+  font-weight: 600;
+  margin-top: 1px;
+  color: var(--k-color-success, #67c23a);
+}
+
+.task-card:hover .audio-icon-circle {
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(103, 194, 58, 0.2);
+}
+
+.task-audio-player {
+  width: 100%;
+  height: 32px;
+  border-radius: 0;
 }
 
 /* 处理中动画 */

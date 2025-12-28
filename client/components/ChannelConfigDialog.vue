@@ -214,92 +214,14 @@
               </div>
 
               <div v-show="expandedPlugins.has(plugin.id)" class="plugin-config-fields">
-                <template v-for="field in plugin.configFields" :key="field.key">
-                  <div v-if="shouldShowOverrideField(plugin, field)" class="override-field-row">
-                    <label class="field-label">{{ field.label }}</label>
-                    <div class="field-input">
-                      <!-- Boolean 类型 -->
-                      <template v-if="field.type === 'boolean'">
-                        <el-select
-                          :model-value="getOverrideValue(plugin.id, field.key)"
-                          @update:model-value="setOverrideValue(plugin.id, field.key, $event)"
-                          placeholder="使用全局配置"
-                          clearable
-                        >
-                          <el-option label="是" :value="true" />
-                          <el-option label="否" :value="false" />
-                        </el-select>
-                      </template>
-
-                      <!-- Select 类型 -->
-                      <template v-else-if="field.type === 'select'">
-                        <el-select
-                          :model-value="getOverrideValue(plugin.id, field.key)"
-                          @update:model-value="setOverrideValue(plugin.id, field.key, $event)"
-                          :placeholder="`全局: ${plugin.config[field.key] ?? '未设置'}`"
-                          clearable
-                        >
-                          <el-option
-                            v-for="opt in field.options"
-                            :key="String(opt.value)"
-                            :label="opt.label"
-                            :value="opt.value"
-                          />
-                        </el-select>
-                      </template>
-
-                      <!-- Select Remote 类型 -->
-                      <template v-else-if="field.type === 'select-remote'">
-                        <el-select
-                          :model-value="getOverrideValue(plugin.id, field.key)"
-                          @update:model-value="setOverrideValue(plugin.id, field.key, $event)"
-                          :placeholder="`全局: ${plugin.config[field.key] ?? '未设置'}`"
-                          :loading="isRemoteLoading(field)"
-                          clearable
-                          filterable
-                        >
-                          <el-option
-                            v-for="opt in getRemoteOptions(field, plugin)"
-                            :key="String(opt.value)"
-                            :label="opt.label"
-                            :value="opt.value"
-                          />
-                        </el-select>
-                      </template>
-
-                      <!-- Number 类型 -->
-                      <template v-else-if="field.type === 'number'">
-                        <el-input-number
-                          :model-value="getOverrideValue(plugin.id, field.key)"
-                          @update:model-value="setOverrideValue(plugin.id, field.key, $event)"
-                          :placeholder="`全局: ${plugin.config[field.key] ?? ''}`"
-                        />
-                      </template>
-
-                      <!-- Textarea 类型 -->
-                      <template v-else-if="field.type === 'textarea'">
-                        <el-input
-                          :model-value="getOverrideValue(plugin.id, field.key)"
-                          @update:model-value="setOverrideValue(plugin.id, field.key, $event)"
-                          type="textarea"
-                          :rows="3"
-                          :placeholder="`全局: ${plugin.config[field.key] ?? '未设置'}`"
-                        />
-                      </template>
-
-                      <!-- Text/String 类型 (默认) -->
-                      <template v-else>
-                        <el-input
-                          :model-value="getOverrideValue(plugin.id, field.key)"
-                          @update:model-value="setOverrideValue(plugin.id, field.key, $event)"
-                          :placeholder="`全局: ${plugin.config[field.key] ?? '未设置'}`"
-                          clearable
-                        />
-                      </template>
-                    </div>
-                    <div v-if="field.description" class="field-hint">{{ field.description }}</div>
-                  </div>
-                </template>
+                <ConfigRenderer
+                  :fields="getPluginOverrideFields(plugin)"
+                  :model-value="getPluginOverrideConfig(plugin.id)"
+                  @update:model-value="updatePluginOverrideConfig(plugin.id, $event)"
+                  :override-mode="true"
+                  :default-values="plugin.config"
+                  :show-nav="false"
+                />
               </div>
             </div>
           </div>
@@ -617,6 +539,33 @@ const shouldShowOverrideField = (plugin: PluginInfo, field: FieldDefinition) => 
   const globalValue = plugin.config[dependField]
   const effectiveValue = overrideValue !== undefined ? overrideValue : globalValue
   return effectiveValue === value
+}
+
+// ============ ConfigRenderer 集成辅助函数 ============
+
+// 获取插件的可覆盖字段（转换为 ConfigField 格式）
+const getPluginOverrideFields = (plugin: PluginInfo): ConfigField[] => {
+  if (!plugin.configFields) return []
+  // 过滤 showWhen 条件
+  return plugin.configFields.filter(field => shouldShowOverrideField(plugin, field))
+}
+
+// 获取插件的覆盖配置
+const getPluginOverrideConfig = (pluginId: string): Record<string, any> => {
+  return form.value.pluginOverrides?.[pluginId] || {}
+}
+
+// 更新插件的覆盖配置
+const updatePluginOverrideConfig = (pluginId: string, config: Record<string, any>) => {
+  if (!form.value.pluginOverrides) {
+    form.value.pluginOverrides = {}
+  }
+  // 如果配置为空，删除该插件的覆盖
+  if (Object.keys(config).length === 0) {
+    delete form.value.pluginOverrides[pluginId]
+  } else {
+    form.value.pluginOverrides[pluginId] = config
+  }
 }
 
 const handleConnectorChange = async (connectorId: string) => {

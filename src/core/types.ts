@@ -43,12 +43,14 @@ export type LifecyclePhase = typeof LIFECYCLE_PHASES[number]
 // ============ 配置字段 ============
 
 /** 配置字段类型 */
-export type ConfigFieldType = 'text' | 'password' | 'number' | 'boolean' | 'select' | 'select-remote' | 'textarea' | 'table'
+export type ConfigFieldType = 'text' | 'password' | 'number' | 'boolean' | 'select' | 'select-remote' | 'combobox' | 'textarea' | 'table'
 
 /** 配置字段选项 */
 export interface ConfigFieldOption {
   label: string
   value: string | number | boolean
+  /** 分组标签（用于 combobox 分组显示） */
+  group?: string
 }
 
 /** 表格列定义（用于 table 类型字段） */

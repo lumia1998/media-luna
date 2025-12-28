@@ -32,6 +32,10 @@ npm install koishi-plugin-media-luna
 
 **推荐使用 MinIO（S3 兼容存储）**：
 
+> ⚠️ **MinIO 版本要求**：请使用 `RELEASE.2025-04-22T22-12-26Z` 或**更早**的版本。后续社区版阉割了部分webui功能。
+>
+> ⚠️ **Bucket 必须设为公开**：在 MinIO 控制台创建 Bucket 后，需要将其 Access Policy 设置为 `public`，否则生成的图片链接无法被用户访问。
+
 ```bash
 docker run -d --name minio \
   -p 9000:9000 -p 9001:9001 \
@@ -42,7 +46,12 @@ docker run -d --name minio \
   server /data --console-address ":9001"
 ```
 
-然后在 cache 插件中配置：
+**MinIO 配置步骤**：
+
+1. 访问 MinIO 控制台 `http://your-server:9001`
+2. 创建 Bucket（如 `media-luna`）
+3. **重要**：点击 Bucket → Access → 将 Access Policy 设置为 `public`
+4. 在 cache 插件中配置：
 - `backend`: `s3`
 - `s3Endpoint`: `http://your-server:9000`
 - `s3AccessKeyId`: `admin`

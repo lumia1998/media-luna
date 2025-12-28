@@ -32,6 +32,14 @@
                 <el-switch v-model="channel.enabled" size="small" @change="toggleEnable(channel)" @click.stop />
               </div>
               <div class="header-meta">
+                <span
+                  class="speaker-id-badge"
+                  title="点击复制 Speaker ID"
+                  @click.stop="copySpeakerId(channel.id)"
+                >
+                  <k-icon name="voice"></k-icon>
+                  {{ getSpeakerId(channel.id) }}
+                </span>
                 <span class="connector-badge">
                   <k-icon name="link"></k-icon> {{ getConnectorName(channel.connectorId) }}
                 </span>
@@ -280,6 +288,25 @@ const formatFieldValue = (value: any, format?: string, suffix?: string): string 
   return suffix ? `${result} ${suffix}` : result
 }
 
+/** Speaker ID 基数 */
+const SPEAKER_ID_BASE = 1000000
+
+/** 获取 Speaker ID */
+const getSpeakerId = (channelId: number) => {
+  return SPEAKER_ID_BASE + channelId
+}
+
+/** 复制 Speaker ID 到剪贴板 */
+const copySpeakerId = async (channelId: number) => {
+  const speakerId = getSpeakerId(channelId)
+  try {
+    await navigator.clipboard.writeText(String(speakerId))
+    message.success(`已复制 Speaker ID: ${speakerId}`)
+  } catch {
+    message.error('复制失败')
+  }
+}
+
 const fetchData = async () => {
   loading.value = true
   try {
@@ -379,6 +406,39 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+.speaker-id-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: linear-gradient(135deg, rgba(103, 194, 58, 0.12), rgba(64, 158, 255, 0.12));
+  border: 1px solid rgba(103, 194, 58, 0.25);
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-family: 'SF Mono', Monaco, 'Consolas', monospace;
+  font-weight: 500;
+  color: var(--k-color-success, #67c23a);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.speaker-id-badge:hover {
+  background: linear-gradient(135deg, rgba(103, 194, 58, 0.2), rgba(64, 158, 255, 0.2));
+  border-color: rgba(103, 194, 58, 0.4);
+  transform: scale(1.02);
+  box-shadow: 0 2px 8px rgba(103, 194, 58, 0.15);
+}
+
+.speaker-id-badge:active {
+  transform: scale(0.98);
+}
+
+.speaker-id-badge .k-icon {
+  font-size: 0.7rem;
+  opacity: 0.8;
 }
 
 .connector-badge {

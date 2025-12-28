@@ -4,8 +4,8 @@
       <div v-if="visible" class="lightbox-overlay" @click.self="close">
         <div class="lightbox-container">
           <div class="lightbox-content">
-            <!-- 左侧图片区域 -->
-            <div class="lightbox-image-area" @click.self="close">
+            <!-- 左侧媒体区域 -->
+            <div class="lightbox-media-area" @click.self="close">
               <!-- 关闭按钮 -->
               <button class="close-btn" @click="close" title="关闭 (Esc)">
                 <k-icon name="times"></k-icon>
@@ -17,20 +17,46 @@
               </div>
 
               <template v-else>
-                <!-- 多图时的导航 -->
-                <button v-if="imageList.length > 1" class="nav-btn prev" @click.stop="prevImage" title="上一张">
+                <!-- 多媒体时的导航 -->
+                <button v-if="mediaList.length > 1" class="nav-btn prev" @click.stop="prevMedia" title="上一个">
                   <k-icon name="chevron-left"></k-icon>
                 </button>
 
-                <img :src="currentImage" class="lightbox-image" alt="Preview" />
+                <!-- 图片 -->
+                <img v-if="currentMedia?.kind === 'image'" :src="currentMedia.url" class="lightbox-image" alt="Preview" />
 
-                <button v-if="imageList.length > 1" class="nav-btn next" @click.stop="nextImage" title="下一张">
+                <!-- 视频 -->
+                <video
+                  v-else-if="currentMedia?.kind === 'video'"
+                  :src="currentMedia.url"
+                  class="lightbox-video"
+                  controls
+                  autoplay
+                  @loadedmetadata="handleMediaMetadata($event, currentMedia.url)"
+                />
+
+                <!-- 音频 -->
+                <div v-else-if="currentMedia?.kind === 'audio'" class="lightbox-audio-container">
+                  <div class="audio-visual-large">
+                    <k-icon name="volume-up"></k-icon>
+                    <span v-if="getMediaDuration(currentMedia.url)" class="audio-duration-large">{{ getMediaDuration(currentMedia.url) }}</span>
+                  </div>
+                  <audio
+                    :src="currentMedia.url"
+                    class="lightbox-audio"
+                    controls
+                    autoplay
+                    @loadedmetadata="handleMediaMetadata($event, currentMedia.url)"
+                  />
+                </div>
+
+                <button v-if="mediaList.length > 1" class="nav-btn next" @click.stop="nextMedia" title="下一个">
                   <k-icon name="chevron-right"></k-icon>
                 </button>
 
-                <!-- 图片计数器 -->
-                <div v-if="imageList.length > 1" class="image-counter">
-                  {{ currentIndex + 1 }} / {{ imageList.length }}
+                <!-- 媒体计数器 -->
+                <div v-if="mediaList.length > 1" class="media-counter">
+                  {{ currentIndex + 1 }} / {{ mediaList.length }}
                 </div>
               </template>
             </div>
@@ -38,7 +64,7 @@
             <!-- 右侧信息栏 -->
             <div class="lightbox-sidebar" v-if="showSidebar">
               <div class="sidebar-header">
-                <div class="info-title">图片详情</div>
+                <div class="info-title">{{ sidebarTitle }}</div>
                 <button class="header-close-btn" @click="close" title="关闭">
                   <k-icon name="times"></k-icon>
                 </button>
@@ -111,9 +137,9 @@
               <div class="sidebar-footer">
                 <button class="action-btn primary" @click="openOriginal">
                   <k-icon name="external-link"></k-icon>
-                  查看原图
+                  {{ currentMedia?.kind === 'audio' ? '打开音频' : currentMedia?.kind === 'video' ? '打开视频' : '查看原图' }}
                 </button>
-                <button class="action-btn secondary" @click="downloadImage">
+                <button class="action-btn secondary" @click="downloadMedia">
                   <k-icon name="download"></k-icon>
                   下载
                 </button>
@@ -130,7 +156,13 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { message } from '@koishijs/client'
 import { taskApi, userApi } from '../api'
-import type { TaskData } from '../types'
+import type { TaskData, AssetKind } from '../types'
+
+/** 媒体项 */
+interface MediaItem {
+  kind: AssetKind
+  url: string
+}
 
 interface Props {
   visible: boolean
@@ -138,6 +170,8 @@ interface Props {
   taskId?: number | null
   // 模式2: 直接传入数据（用于 GenerateView 等场景）
   images?: string[]
+  // 模式3: 传入媒体数组（支持多种媒体类型）
+  media?: MediaItem[]
   prompt?: string
   duration?: number
   createdAt?: Date | string
@@ -162,23 +196,60 @@ const taskData = ref<TaskData | null>(null)
 const userInfo = ref<{ name?: string; avatar?: string; platform?: string } | null>(null)
 const currentIndex = ref(props.initialIndex)
 
-// 判断是否使用 taskId 模式
-const isTaskIdMode = computed(() => !!props.taskId && !props.images?.length)
+// 媒体时长缓存 (key: url, value: duration in seconds)
+const mediaDurations = ref<Record<string, number>>({})
 
-// 计算属性：图片列表（支持两种模式）
-const imageList = computed<string[]>(() => {
-  // 直接传入 images 时优先使用
+// 判断是否使用 taskId 模式
+const isTaskIdMode = computed(() => !!props.taskId && !props.images?.length && !props.media?.length)
+
+// 计算属性：媒体列表（支持三种模式）
+const mediaList = computed<MediaItem[]>(() => {
+  // 直接传入 media 时优先使用
+  if (props.media?.length) {
+    return props.media
+  }
+  // 传入 images 时转换为 MediaItem
   if (props.images?.length) {
-    return props.images
+    return props.images.map(url => ({ kind: 'image' as AssetKind, url }))
   }
   // 否则从任务数据中提取
   if (!taskData.value?.responseSnapshot) return []
   return taskData.value.responseSnapshot
-    .filter(asset => (asset.kind === 'image' || asset.kind === 'video') && asset.url)
-    .map(asset => asset.url!)
+    .filter(asset => ['image', 'video', 'audio'].includes(asset.kind) && asset.url)
+    .map(asset => ({ kind: asset.kind, url: asset.url! }))
 })
 
-const currentImage = computed(() => imageList.value[currentIndex.value] || '')
+const currentMedia = computed<MediaItem | null>(() => mediaList.value[currentIndex.value] || null)
+
+// 侧边栏标题（根据媒体类型动态显示）
+const sidebarTitle = computed(() => {
+  const kind = currentMedia.value?.kind
+  if (kind === 'audio') return '音频详情'
+  if (kind === 'video') return '视频详情'
+  return '图片详情'
+})
+
+/** 处理媒体加载元数据事件，获取时长 */
+const handleMediaMetadata = (e: Event, url: string) => {
+  const media = e.target as HTMLAudioElement | HTMLVideoElement
+  if (media.duration && isFinite(media.duration)) {
+    mediaDurations.value[url] = media.duration
+  }
+}
+
+/** 获取媒体时长显示 */
+const getMediaDuration = (url: string) => {
+  const duration = mediaDurations.value[url]
+  return duration ? formatMediaDuration(duration) : ''
+}
+
+/** 格式化媒体时长（秒 -> mm:ss） */
+const formatMediaDuration = (seconds: number) => {
+  if (!seconds || seconds <= 0) return ''
+  const mins = Math.floor(seconds / 60)
+  const secs = Math.floor(seconds % 60)
+  return mins > 0 ? `${mins}:${secs.toString().padStart(2, '0')}` : `0:${secs.toString().padStart(2, '0')}`
+}
 
 // 显示的提示词（支持两种模式）
 const displayPrompt = computed(() => {
@@ -275,12 +346,12 @@ const close = () => {
   emit('close')
 }
 
-const prevImage = () => {
-  currentIndex.value = (currentIndex.value - 1 + imageList.value.length) % imageList.value.length
+const prevMedia = () => {
+  currentIndex.value = (currentIndex.value - 1 + mediaList.value.length) % mediaList.value.length
 }
 
-const nextImage = () => {
-  currentIndex.value = (currentIndex.value + 1) % imageList.value.length
+const nextMedia = () => {
+  currentIndex.value = (currentIndex.value + 1) % mediaList.value.length
 }
 
 const copyPrompt = () => {
@@ -291,13 +362,19 @@ const copyPrompt = () => {
 }
 
 const openOriginal = () => {
-  window.open(currentImage.value, '_blank')
+  if (currentMedia.value?.url) {
+    window.open(currentMedia.value.url, '_blank')
+  }
 }
 
-const downloadImage = () => {
+const downloadMedia = () => {
+  if (!currentMedia.value?.url) return
   const link = document.createElement('a')
-  link.href = currentImage.value
-  link.download = `image-${Date.now()}.png`
+  link.href = currentMedia.value.url
+  // 根据媒体类型选择扩展名
+  const kind = currentMedia.value.kind
+  const ext = kind === 'audio' ? 'mp3' : kind === 'video' ? 'mp4' : 'png'
+  link.download = `${kind}-${Date.now()}.${ext}`
   link.click()
 }
 
@@ -318,9 +395,9 @@ const handleKeydown = (e: KeyboardEvent) => {
   if (e.key === 'Escape') {
     close()
   } else if (e.key === 'ArrowLeft') {
-    prevImage()
+    prevMedia()
   } else if (e.key === 'ArrowRight') {
-    nextImage()
+    nextMedia()
   }
 }
 
@@ -364,8 +441,8 @@ onUnmounted(() => {
   height: 100%;
 }
 
-/* 图片区域 */
-.lightbox-image-area {
+/* 媒体区域 */
+.lightbox-media-area {
   flex: 1;
   background: #0a0a0a;
   display: flex;
@@ -381,6 +458,55 @@ onUnmounted(() => {
   max-height: 100%;
   object-fit: contain;
   display: block;
+}
+
+/* 视频 */
+.lightbox-video {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  display: block;
+  outline: none;
+}
+
+/* 音频容器 */
+.lightbox-audio-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+  padding: 40px;
+}
+
+.audio-visual-large {
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--k-color-active), var(--k-color-primary));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: white;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.audio-visual-large .k-icon {
+  font-size: 64px;
+}
+
+.audio-duration-large {
+  font-size: 1.2rem;
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+.lightbox-audio {
+  width: 100%;
+  max-width: 400px;
+  height: 48px;
 }
 
 .loading-state {
@@ -453,7 +579,7 @@ onUnmounted(() => {
   right: 16px;
 }
 
-.image-counter {
+.media-counter {
   position: absolute;
   bottom: 16px;
   left: 50%;
@@ -706,7 +832,7 @@ onUnmounted(() => {
     flex-direction: column;
   }
 
-  .lightbox-image-area {
+  .lightbox-media-area {
     min-height: 50vh;
   }
 

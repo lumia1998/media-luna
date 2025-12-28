@@ -42,7 +42,21 @@
         <div class="field-container">
           <!-- Boolean 类型 -->
           <template v-if="field.type === 'boolean'">
+            <!-- 覆盖模式：使用三态选择 -->
+            <el-select
+              v-if="overrideMode"
+              :model-value="getFieldValue(field.key)"
+              @update:model-value="setFieldValue(field.key, $event)"
+              :placeholder="getFieldPlaceholder(field)"
+              clearable
+              style="width: 100%"
+            >
+              <el-option label="是" :value="true" />
+              <el-option label="否" :value="false" />
+            </el-select>
+            <!-- 普通模式：使用开关 -->
             <el-switch
+              v-else
               :model-value="getFieldValue(field.key)"
               @update:model-value="setFieldValue(field.key, $event)"
             />
@@ -53,8 +67,8 @@
             <el-select
               :model-value="getFieldValue(field.key)"
               @update:model-value="setFieldValue(field.key, $event)"
-              :placeholder="field.placeholder || '请选择'"
-              :clearable="clearable"
+              :placeholder="getFieldPlaceholder(field) || '请选择'"
+              :clearable="clearable || overrideMode"
               style="width: 100%"
             >
               <el-option
@@ -71,8 +85,8 @@
             <el-select
               :model-value="getFieldValue(field.key)"
               @update:model-value="setFieldValue(field.key, $event)"
-              :placeholder="field.placeholder || '请选择'"
-              :clearable="clearable"
+              :placeholder="getFieldPlaceholder(field) || '请选择'"
+              :clearable="clearable || overrideMode"
               :loading="isRemoteLoading(field)"
               filterable
               style="width: 100%"
@@ -86,12 +100,56 @@
             </el-select>
           </template>
 
+          <!-- Combobox 类型（输入框 + 下拉预设） -->
+          <template v-else-if="field.type === 'combobox'">
+            <div class="combobox-wrapper">
+              <el-input
+                :model-value="getFieldValue(field.key)"
+                @update:model-value="setFieldValue(field.key, $event)"
+                :placeholder="getFieldPlaceholder(field) || '输入或从下方选择'"
+                :clearable="clearable || overrideMode"
+                style="width: 100%"
+              />
+              <el-select
+                :model-value="getFieldValue(field.key)"
+                @update:model-value="setFieldValue(field.key, $event)"
+                placeholder="从预设中选择"
+                :clearable="false"
+                filterable
+                style="width: 100%; margin-top: 4px;"
+                class="combobox-presets"
+              >
+                <el-option-group
+                  v-for="group in getGroupedOptions(field)"
+                  :key="group.label"
+                  :label="group.label"
+                >
+                  <el-option
+                    v-for="opt in group.options"
+                    :key="String(opt.value)"
+                    :label="opt.label"
+                    :value="opt.value"
+                  />
+                </el-option-group>
+                <!-- 如果没有分组，直接渲染选项 -->
+                <template v-if="!hasGroupedOptions(field)">
+                  <el-option
+                    v-for="opt in field.options"
+                    :key="String(opt.value)"
+                    :label="opt.label"
+                    :value="opt.value"
+                  />
+                </template>
+              </el-select>
+            </div>
+          </template>
+
           <!-- Number 类型 -->
           <template v-else-if="field.type === 'number'">
             <el-input-number
               :model-value="getFieldValue(field.key)"
               @update:model-value="setFieldValue(field.key, $event)"
-              :placeholder="field.placeholder"
+              :placeholder="getFieldPlaceholder(field)"
               :controls="true"
             />
           </template>
@@ -103,7 +161,7 @@
               @update:model-value="setFieldValue(field.key, $event)"
               type="textarea"
               :rows="4"
-              :placeholder="field.placeholder"
+              :placeholder="getFieldPlaceholder(field)"
             />
           </template>
 
@@ -125,7 +183,7 @@
               @update:model-value="setFieldValue(field.key, $event)"
               type="password"
               show-password
-              :placeholder="field.placeholder"
+              :placeholder="getFieldPlaceholder(field)"
             />
           </template>
 
@@ -134,8 +192,8 @@
             <el-input
               :model-value="getFieldValue(field.key)"
               @update:model-value="setFieldValue(field.key, $event)"
-              :placeholder="field.placeholder"
-              :clearable="clearable"
+              :placeholder="getFieldPlaceholder(field)"
+              :clearable="clearable || overrideMode"
             />
           </template>
 
@@ -164,12 +222,18 @@ interface Props {
   presetsMap?: Record<string, Record<string, any>[]>
   /** 是否显示快速导航 */
   showNav?: boolean
+  /** 覆盖模式：用于渠道级配置覆盖，显示全局值作为 placeholder */
+  overrideMode?: boolean
+  /** 覆盖模式下的全局默认值 */
+  defaultValues?: Record<string, any>
 }
 
 const props = withDefaults(defineProps<Props>(), {
   clearable: false,
   presetsMap: () => ({}),
-  showNav: true
+  showNav: true,
+  overrideMode: false,
+  defaultValues: () => ({})
 })
 
 const emit = defineEmits<{
@@ -379,6 +443,10 @@ watch(() => props.modelValue, (newVal, oldVal) => {
 // 获取字段值（支持默认值 fallback）
 const getFieldValue = (key: string) => {
   const value = getNestedValue(props.modelValue, key)
+  // 覆盖模式下，只返回实际设置的值，不使用默认值
+  if (props.overrideMode) {
+    return value
+  }
   // 如果值为 undefined 或 null，尝试使用字段定义的默认值
   if (value === undefined || value === null) {
     const field = props.fields.find(f => f.key === key)
@@ -389,8 +457,27 @@ const getFieldValue = (key: string) => {
   return value
 }
 
+// 获取字段的 placeholder（覆盖模式下显示全局值）
+const getFieldPlaceholder = (field: ConfigField): string => {
+  if (props.overrideMode && props.defaultValues) {
+    const globalValue = props.defaultValues[field.key]
+    if (globalValue !== undefined && globalValue !== null && globalValue !== '') {
+      return `全局: ${globalValue}`
+    }
+    return '使用全局配置'
+  }
+  return field.placeholder || ''
+}
+
 // 设置字段值
 const setFieldValue = (key: string, value: any) => {
+  // 覆盖模式下，清空值时删除键
+  if (props.overrideMode && (value === undefined || value === null || value === '')) {
+    const newObj = { ...props.modelValue }
+    delete newObj[key]
+    emit('update:modelValue', newObj)
+    return
+  }
   const newValue = setNestedValue(props.modelValue, key, value)
   emit('update:modelValue', newValue)
 }
@@ -429,6 +516,41 @@ const getTableRows = (key: string): Record<string, any>[] => {
 const getPresets = (source?: string): Record<string, any>[] => {
   if (!source) return []
   return props.presetsMap?.[source] || []
+}
+
+// ============ Combobox 分组支持 ============
+
+interface OptionGroup {
+  label: string
+  options: { label: string; value: string | number | boolean }[]
+}
+
+// 检查字段是否有分组选项
+const hasGroupedOptions = (field: ConfigField): boolean => {
+  if (!field.options?.length) return false
+  return field.options.some(opt => 'group' in opt && opt.group)
+}
+
+// 获取分组后的选项
+const getGroupedOptions = (field: ConfigField): OptionGroup[] => {
+  if (!field.options?.length) return []
+
+  const groups = new Map<string, { label: string; value: string | number | boolean }[]>()
+
+  for (const opt of field.options) {
+    const groupName = (opt as any).group || ''
+    if (!groupName) continue
+
+    if (!groups.has(groupName)) {
+      groups.set(groupName, [])
+    }
+    groups.get(groupName)!.push({ label: opt.label, value: opt.value })
+  }
+
+  return Array.from(groups.entries()).map(([label, options]) => ({
+    label,
+    options
+  }))
 }
 </script>
 
@@ -480,6 +602,21 @@ const getPresets = (source?: string): Record<string, any>[] => {
   font-size: 0.8rem;
   color: var(--k-color-text-description);
   margin-top: 0.25rem;
+}
+
+/* Combobox 样式 */
+.combobox-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.combobox-presets {
+  opacity: 0.85;
+}
+
+.combobox-presets:hover {
+  opacity: 1;
 }
 
 /* 快速导航 - 卡片式设计 */

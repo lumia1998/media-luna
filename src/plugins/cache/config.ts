@@ -134,7 +134,7 @@ export const cacheConfigFields: ConfigField[] = [
     label: 'S3 端点',
     type: 'text',
     placeholder: 'https://s3.amazonaws.com',
-    description: 'S3 兼容服务端点地址',
+    description: 'S3 兼容服务端点地址（MinIO 请使用 RELEASE.2025-04-22T22-12-26Z 或更早版本）',
     showWhen: { field: 'backend', value: 's3' }
   },
   {
@@ -162,6 +162,7 @@ export const cacheConfigFields: ConfigField[] = [
     label: 'Bucket 名称',
     type: 'text',
     placeholder: 'my-bucket',
+    description: '⚠️ MinIO 用户注意：需在控制台将 Bucket 的 Access Policy 设为 public',
     showWhen: { field: 'backend', value: 's3' }
   },
   {
