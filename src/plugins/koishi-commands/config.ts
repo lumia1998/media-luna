@@ -12,6 +12,10 @@ export interface KoishiCommandsConfig {
   collectTimeout: number
   /** 直接触发所需的最小图片数量 */
   directTriggerImageCount: number
+  /** 是否启用链接模式（特定标签渠道输出链接而不是发图） */
+  linkModeEnabled: boolean
+  /** 触发链接模式的渠道标签（逗号分隔，如 nsfw,r18） */
+  linkModeTags: string
 }
 
 /** 默认配置 */
@@ -19,7 +23,9 @@ export const defaultKoishiCommandsConfig: KoishiCommandsConfig = {
   enabled: true,
   myTasksDefaultCount: 5,
   collectTimeout: 120,
-  directTriggerImageCount: 2
+  directTriggerImageCount: 2,
+  linkModeEnabled: false,
+  linkModeTags: 'nsfw'
 }
 
 /** 配置字段定义 */
@@ -51,5 +57,19 @@ export const koishiCommandsConfigFields: ConfigField[] = [
     type: 'number',
     default: 2,
     description: '图片数量达到此值时直接触发生成，否则进入收集模式'
+  },
+  {
+    key: 'linkModeEnabled',
+    label: '链接模式',
+    type: 'boolean',
+    default: false,
+    description: '启用后，带有指定标签的渠道将输出链接而不是直接发图'
+  },
+  {
+    key: 'linkModeTags',
+    label: '链接模式标签',
+    type: 'text',
+    default: 'nsfw',
+    description: '触发链接模式的渠道标签，多个标签用逗号分隔（如 nsfw,r18）'
   }
 ]

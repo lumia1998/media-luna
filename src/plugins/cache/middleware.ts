@@ -10,6 +10,14 @@ import type {
 import type { CacheService } from './service'
 import { getExtensionFromMime } from './utils'
 
+// ============ 中间件配置 ============
+
+/** 存储中间件配置（从插件配置读取） */
+interface StorageMiddlewareConfig {
+  /** 使用的存储方案名称（不填则使用默认） */
+  schemeName?: string
+}
+
 // ============ 工具函数 ============
 
 /**
@@ -60,19 +68,21 @@ async function downloadAsset(url: string): Promise<{ buffer: Buffer; mime: strin
 
 /**
  * 上传文件到存储后端（通过 CacheService）
+ * @param schemeName 可选的存储方案名称
  */
 async function uploadToBackend(
   buffer: Buffer,
   filename: string,
   mime: string,
-  mctx: MiddlewareContext
+  mctx: MiddlewareContext,
+  schemeName?: string
 ): Promise<{ url: string; key: string }> {
   const cacheService = mctx.getService<CacheService>('cache')
   if (!cacheService) {
     throw new Error('缓存服务不可用')
   }
 
-  const cached = await cacheService.cache(buffer, mime, filename)
+  const cached = await cacheService.cache(buffer, mime, filename, undefined, schemeName)
   if (!cached.url) {
     throw new Error('无法获取缓存 URL，请检查存储配置')
   }
@@ -93,7 +103,6 @@ export function createStorageInputMiddleware(): MiddlewareDefinition {
     category: 'cache',
     configGroup: 'cache',  // 关联到 plugin:cache 配置
     phase: 'lifecycle-prepare',
-    // 配置在 cache 插件的"扩展插件"面板中设置
 
     async execute(mctx: MiddlewareContext, next): Promise<MiddlewareRunStatus> {
       // 获取缓存服务
@@ -112,7 +121,11 @@ export function createStorageInputMiddleware(): MiddlewareDefinition {
         return next()
       }
 
-      const backend = cacheService.getBackend()
+      // 获取中间件配置的存储方案
+      const middlewareConfig = await mctx.getMiddlewareConfig<StorageMiddlewareConfig>('storage-input')
+      const schemeName = middlewareConfig?.schemeName || undefined
+      const backend = cacheService.getSchemeBackend(schemeName)
+
       const uploadLogs: Array<{ index: number; filename: string; url?: string; error?: string }> = []
       const uploadedUrls: string[] = []
 
@@ -128,7 +141,7 @@ export function createStorageInputMiddleware(): MiddlewareDefinition {
           const ext = getExtensionFromMime(file.mime)
           const filename = `input-${i}${ext}`
 
-          const result = await uploadToBackend(buffer, filename, file.mime, mctx)
+          const result = await uploadToBackend(buffer, filename, file.mime, mctx, schemeName)
 
           uploadedUrls.push(result.url)
           uploadLogs.push({ index: i, filename: file.filename, url: result.url })
@@ -147,6 +160,7 @@ export function createStorageInputMiddleware(): MiddlewareDefinition {
 
       mctx.setMiddlewareLog('storage-input', {
         backend,
+        schemeName: schemeName || 'default',
         total: mctx.files.length,
         uploaded: uploadLogs.filter(l => l.url).length,
         failed: uploadLogs.filter(l => l.error).length,
@@ -171,7 +185,6 @@ export function createStorageMiddleware(): MiddlewareDefinition {
     category: 'cache',
     configGroup: 'cache',  // 关联到 plugin:cache 配置
     phase: 'lifecycle-post-request',
-    // 配置在 cache 插件的"扩展插件"面板中设置
 
     async execute(mctx: MiddlewareContext, next): Promise<MiddlewareRunStatus> {
       // 获取缓存服务
@@ -190,7 +203,11 @@ export function createStorageMiddleware(): MiddlewareDefinition {
         return next()
       }
 
-      const backend = cacheService.getBackend()
+      // 获取中间件配置的存储方案
+      const middlewareConfig = await mctx.getMiddlewareConfig<StorageMiddlewareConfig>('storage')
+      const schemeName = middlewareConfig?.schemeName || undefined
+      const backend = cacheService.getSchemeBackend(schemeName)
+
       const uploadedAssets: OutputAsset[] = []
       const uploadLogs: Array<{ index: number; originalUrl: string; newUrl?: string; error?: string }> = []
 
@@ -207,7 +224,7 @@ export function createStorageMiddleware(): MiddlewareDefinition {
           const { buffer, mime } = await downloadAsset(asset.url)
           const filename = `output-${asset.kind}-${i}`
 
-          const result = await uploadToBackend(buffer, filename, mime, mctx)
+          const result = await uploadToBackend(buffer, filename, mime, mctx, schemeName)
 
           const isBase64 = asset.url.startsWith('data:')
           uploadedAssets.push({
@@ -217,7 +234,8 @@ export function createStorageMiddleware(): MiddlewareDefinition {
               ...asset.meta,
               ...(isBase64 ? {} : { originalUrl: asset.url }),
               storageKey: result.key,
-              storageBackend: backend
+              storageBackend: backend,
+              storageSchemeName: schemeName || 'default'
             }
           })
 
@@ -241,6 +259,7 @@ export function createStorageMiddleware(): MiddlewareDefinition {
 
       mctx.setMiddlewareLog('storage', {
         backend,
+        schemeName: schemeName || 'default',
         total: mctx.output.length,
         uploaded: uploadLogs.filter(l => l.newUrl).length,
         failed: uploadLogs.filter(l => l.error).length,

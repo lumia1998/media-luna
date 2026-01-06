@@ -692,7 +692,7 @@ function registerChannelCommand(
         if (state.prompts.length === 0 && state.files.length === 0) {
           return '请输入提示词'
         }
-        return executeGenerateWithPresetCheck(ctx, session, channel, state, mediaLuna)
+        return executeGenerateWithPresetCheck(ctx, session, channel, state, mediaLuna, config)
       }
 
       // 以下是需要图片输入的渠道（img2xxx 类型）
@@ -700,7 +700,7 @@ function registerChannelCommand(
       // 判断是否直接触发
       if (state.files.length >= config.directTriggerImageCount) {
         // 图片数量足够，直接生成
-        return executeGenerateWithPresetCheck(ctx, session, channel, state, mediaLuna)
+        return executeGenerateWithPresetCheck(ctx, session, channel, state, mediaLuna, config)
       }
 
       // 进入收集模式
@@ -886,7 +886,8 @@ async function executeGenerateWithPresetCheck(
   session: Session | undefined,
   channel: any,
   state: CollectState,
-  mediaLuna: any
+  mediaLuna: any,
+  config: KoishiCommandsConfig
 ): Promise<string> {
   // 实时获取该渠道匹配的预设列表（基于渠道标签与预设标签匹配）
   const combinations = await mediaLuna.getChannelPresetCombinations()
@@ -925,14 +926,14 @@ async function executeGenerateWithPresetCheck(
 
   const summaryMsg = `开始生成 | ${summaryParts.join(' | ')}`
 
-  // 执行生成
+  // 执行生成（传递 config 和渠道标签用于链接模式检查）
   return executeGenerate(ctx, session, mediaLuna, {
     channelName: channel.name,
     presetName,
     prompt: actualPrompt,
     files: state.files,
     summaryMsg
-  })
+  }, config, channel.tags || [])
 }
 
 /**
@@ -1014,7 +1015,7 @@ async function enterCollectMode(
 
         // 开始生成（带预设检查）
         const result = await executeGenerateWithPresetCheck(
-          ctx, session, channel, state, mediaLuna
+          ctx, session, channel, state, mediaLuna, config
         )
         resolve(result)
         return
@@ -1067,7 +1068,9 @@ async function executeGenerate(
     prompt: string
     files: FileData[]
     summaryMsg?: string
-  }
+  },
+  config: KoishiCommandsConfig,
+  channelTags: string[] = []
 ): Promise<string> {
   const logger = ctx.logger('media-luna/commands')
 
@@ -1116,7 +1119,10 @@ async function executeGenerate(
       await deleteMessages(session, generatingMsgIds)
     }
 
-    return formatResult(result)
+    // 检查是否需要使用链接模式（返回匹配的标签名或 null）
+    const linkModeTag = checkLinkMode(config, channelTags)
+
+    return formatResult(result, linkModeTag)
   } catch (error) {
     // 撤销"正在生成中"消息
     if (session && generatingMsgIds) {
@@ -1129,13 +1135,38 @@ async function executeGenerate(
 }
 
 /**
+ * 检查是否应该使用链接模式
+ * 返回匹配的标签（用于显示原因），如果不匹配则返回 null
+ */
+function checkLinkMode(config: KoishiCommandsConfig, channelTags: string[]): string | null {
+  if (!config.linkModeEnabled) return null
+  if (!config.linkModeTags || typeof config.linkModeTags !== 'string' || !channelTags.length) return null
+
+  // 解析配置的标签（逗号分隔）
+  const linkTags = config.linkModeTags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean)
+  if (linkTags.length === 0) return null
+
+  // 检查渠道标签是否包含任意一个链接模式标签
+  const channelTagsLower = channelTags.map(t => t.toLowerCase())
+  for (const tag of linkTags) {
+    if (channelTagsLower.includes(tag)) {
+      // 返回原始大小写的标签
+      const originalIndex = channelTagsLower.indexOf(tag)
+      return channelTags[originalIndex]
+    }
+  }
+  return null
+}
+
+/**
  * 格式化生成结果
  * 根据输出类型使用不同的展示方式：
  * - 图片/文本：常规格式，带任务ID和计费信息
  * - 视频：使用合并转发消息
  * - 纯音频：只发送音频元素，不带任务ID和计费信息
+ * - 链接模式：使用合并转发消息，输出链接而不是直接发图
  */
-function formatResult(result: GenerationResult): string {
+function formatResult(result: GenerationResult, linkModeTag: string | null = null): string {
   // 失败情况：始终显示任务ID和错误信息
   if (!result.success) {
     const messages: string[] = []
@@ -1177,7 +1208,12 @@ function formatResult(result: GenerationResult): string {
 
   // 包含视频：使用合并转发消息
   if (hasVideo) {
-    return formatVideoResult(result)
+    return formatVideoResult(result, linkModeTag)
+  }
+
+  // 链接模式：使用合并转发消息，每个链接单独一条方便复制
+  if (linkModeTag) {
+    return formatLinkModeResult(result, linkModeTag)
   }
 
   // 常规输出：图片/文本，带任务ID和计费信息
@@ -1187,7 +1223,7 @@ function formatResult(result: GenerationResult): string {
 /**
  * 格式化视频输出（使用合并转发消息）
  */
-function formatVideoResult(result: GenerationResult): string {
+function formatVideoResult(result: GenerationResult, linkModeTag: string | null = null): string {
   const forwardMessages: string[] = []
 
   // 第一条消息：任务信息
@@ -1205,12 +1241,65 @@ function formatVideoResult(result: GenerationResult): string {
     forwardMessages.push(`<message>${infoLines.join(' | ')}</message>`)
   }
 
+  // 链接模式说明
+  if (linkModeTag) {
+    forwardMessages.push(`<message>📎 因渠道标签 [${linkModeTag}] 启用链接模式</message>`)
+  }
+
   // 输出内容
   for (const asset of result.output!) {
     if (asset.kind === 'video' && asset.url) {
-      forwardMessages.push(`<message><video url="${asset.url}"/></message>`)
+      if (linkModeTag) {
+        forwardMessages.push(`<message>${asset.url}</message>`)
+      } else {
+        forwardMessages.push(`<message><video url="${asset.url}"/></message>`)
+      }
     } else if (asset.kind === 'image' && asset.url) {
-      forwardMessages.push(`<message><image url="${asset.url}"/></message>`)
+      if (linkModeTag) {
+        forwardMessages.push(`<message>${asset.url}</message>`)
+      } else {
+        forwardMessages.push(`<message><image url="${asset.url}"/></message>`)
+      }
+    } else if (asset.kind === 'audio' && asset.url) {
+      forwardMessages.push(`<message><audio url="${asset.url}"/></message>`)
+    } else if (asset.kind === 'text' && asset.content) {
+      forwardMessages.push(`<message>${asset.content}</message>`)
+    }
+  }
+
+  return `<message forward>${forwardMessages.join('')}</message>`
+}
+
+/**
+ * 格式化链接模式输出（使用合并转发消息，每个链接单独一条方便复制）
+ */
+function formatLinkModeResult(result: GenerationResult, linkModeTag: string): string {
+  const forwardMessages: string[] = []
+
+  // 第一条消息：任务信息
+  const infoLines: string[] = []
+  if (result.taskId) {
+    infoLines.push(`任务「${result.taskId}」`)
+  }
+  if (result.duration) {
+    infoLines.push(`耗时 ${formatDuration(result.duration)}`)
+  }
+  if (result.hints?.after && result.hints.after.length > 0) {
+    infoLines.push(...result.hints.after)
+  }
+  if (infoLines.length > 0) {
+    forwardMessages.push(`<message>${infoLines.join(' | ')}</message>`)
+  }
+
+  // 链接模式说明
+  forwardMessages.push(`<message>📎 因渠道标签 [${linkModeTag}] 启用链接模式</message>`)
+
+  // 输出内容：每个链接单独一条消息
+  for (const asset of result.output!) {
+    if (asset.kind === 'image' && asset.url) {
+      forwardMessages.push(`<message>${asset.url}</message>`)
+    } else if (asset.kind === 'video' && asset.url) {
+      forwardMessages.push(`<message>${asset.url}</message>`)
     } else if (asset.kind === 'audio' && asset.url) {
       forwardMessages.push(`<message><audio url="${asset.url}"/></message>`)
     } else if (asset.kind === 'text' && asset.content) {

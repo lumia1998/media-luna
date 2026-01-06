@@ -7,7 +7,8 @@ import * as path from 'path'
 import * as crypto from 'crypto'
 import type { PluginLogger } from '../../core'
 import { createPluginLogger } from '../../core'
-import type { CachePluginConfig } from './config'
+import type { CachePluginConfig, StorageScheme } from './config'
+import { getAllSchemes, schemeToStorageConfig } from './config'
 import type { MediaLunaAssetCache } from '../../augmentations'
 import { uploadToS3, deleteFromS3, type S3Config } from './utils/s3'
 import { uploadToWebDav, type WebDavConfig } from './utils/webdav'
@@ -149,48 +150,97 @@ export class CacheService {
     return this.config
   }
 
+  /**
+   * 获取指定方案的配置
+   * @param schemeName 方案名称，'default' 或 undefined 返回默认配置
+   */
+  getSchemeConfig(schemeName?: string): CachePluginConfig {
+    if (!schemeName || schemeName === 'default') {
+      return this.config
+    }
+
+    const schemes = getAllSchemes(this.config)
+    const scheme = schemes.find(s => s.name === schemeName)
+    if (!scheme) {
+      this.logger.warn('Storage scheme not found: %s, using default', schemeName)
+      return this.config
+    }
+
+    // 合并方案配置到当前配置
+    const schemeConfig = schemeToStorageConfig(scheme)
+    return { ...this.config, ...schemeConfig }
+  }
+
+  /**
+   * 获取指定方案对应的后端类型
+   */
+  getSchemeBackend(schemeName?: string): string {
+    const config = this.getSchemeConfig(schemeName)
+    return config.backend || 'local'
+  }
+
+  /**
+   * 获取所有可用的方案名称
+   */
+  getAvailableSchemes(): string[] {
+    const names = ['default']
+    const schemes = getAllSchemes(this.config)
+    for (const scheme of schemes) {
+      if (scheme.name && !names.includes(scheme.name)) {
+        names.push(scheme.name)
+      }
+    }
+    return names
+  }
+
   /** 转换为 S3 配置 */
-  private toS3Config(): S3Config {
+  private toS3Config(config?: CachePluginConfig): S3Config {
+    const cfg = config || this.config
     return {
-      endpoint: this.config.s3Endpoint,
-      region: this.config.s3Region,
-      accessKeyId: this.config.s3AccessKeyId,
-      secretAccessKey: this.config.s3SecretAccessKey,
-      bucket: this.config.s3Bucket,
-      publicBaseUrl: this.config.s3PublicBaseUrl,
-      forcePathStyle: this.config.s3ForcePathStyle,
-      acl: this.config.s3Acl
+      endpoint: cfg.s3Endpoint,
+      region: cfg.s3Region,
+      accessKeyId: cfg.s3AccessKeyId,
+      secretAccessKey: cfg.s3SecretAccessKey,
+      bucket: cfg.s3Bucket,
+      publicBaseUrl: cfg.s3PublicBaseUrl,
+      forcePathStyle: cfg.s3ForcePathStyle,
+      acl: cfg.s3Acl
     }
   }
 
   /** 转换为 WebDAV 配置 */
-  private toWebDavConfig(): WebDavConfig {
+  private toWebDavConfig(config?: CachePluginConfig): WebDavConfig {
+    const cfg = config || this.config
     return {
-      endpoint: this.config.webdavEndpoint,
-      username: this.config.webdavUsername,
-      password: this.config.webdavPassword,
-      basePath: this.config.webdavBasePath,
-      publicBaseUrl: this.config.webdavPublicBaseUrl
+      endpoint: cfg.webdavEndpoint,
+      username: cfg.webdavUsername,
+      password: cfg.webdavPassword,
+      basePath: cfg.webdavBasePath,
+      publicBaseUrl: cfg.webdavPublicBaseUrl
     }
   }
 
   /**
    * 缓存文件
    * 根据配置的后端自动选择存储方式
+   * @param schemeName 可选的存储方案名称，用于选择特定的存储后端
    */
-  async cache(data: Buffer | ArrayBuffer, mime: string, filename?: string, sourceUrl?: string): Promise<CachedFile> {
-    if (!this.config.enabled) {
+  async cache(data: Buffer | ArrayBuffer, mime: string, filename?: string, sourceUrl?: string, schemeName?: string): Promise<CachedFile> {
+    // 获取指定方案的配置
+    const effectiveConfig = this.getSchemeConfig(schemeName)
+
+    if (!effectiveConfig.enabled) {
       throw new Error('Cache is disabled')
     }
 
     const buffer = Buffer.isBuffer(data) ? data : Buffer.from(data)
-    const backend = this.config.backend || 'local'
+    const backend = effectiveConfig.backend || 'local'
 
     // 检查文件大小（仅本地模式限制）
     if (backend === 'local') {
       const sizeMB = buffer.length / (1024 * 1024)
-      if (sizeMB > this.config.maxFileSize) {
-        throw new Error(`File too large: ${sizeMB.toFixed(2)}MB > ${this.config.maxFileSize}MB`)
+      if (sizeMB > effectiveConfig.maxFileSize) {
+        throw new Error(`File too large: ${sizeMB.toFixed(2)}MB > ${effectiveConfig.maxFileSize}MB`)
       }
     }
 
@@ -219,13 +269,13 @@ export class CacheService {
 
     switch (backend) {
       case 'local':
-        cachedUrl = await this.storeLocal(buffer, storageKey, contentHash, ext)
+        cachedUrl = await this.storeLocal(buffer, storageKey, contentHash, ext, effectiveConfig)
         break
       case 's3':
-        cachedUrl = await this.storeS3(buffer, storageKey, mime)
+        cachedUrl = await this.storeS3(buffer, storageKey, mime, effectiveConfig)
         break
       case 'webdav':
-        cachedUrl = await this.storeWebDav(buffer, storageKey, mime)
+        cachedUrl = await this.storeWebDav(buffer, storageKey, mime, effectiveConfig)
         break
       case 'none':
         throw new Error('Storage backend is set to none')
@@ -271,19 +321,24 @@ export class CacheService {
   }
 
   /** 存储到本地 */
-  private async storeLocal(buffer: Buffer, storageKey: string, contentHash: string, ext: string): Promise<string> {
+  private async storeLocal(buffer: Buffer, storageKey: string, contentHash: string, ext: string, config?: CachePluginConfig): Promise<string> {
     // 确保有足够空间
     await this.ensureCacheSpace(buffer.length)
 
-    const localPath = path.join(this.cacheRoot, storageKey)
+    // 使用指定配置的目录（如果提供）
+    const cacheDir = config?.cacheDir || this.config.cacheDir
+    const cacheRoot = path.join(this.ctx.baseDir, cacheDir || 'data/media-luna/cache')
+    this.ensureDir(cacheRoot)
+
+    const localPath = path.join(cacheRoot, storageKey)
     fs.writeFileSync(localPath, buffer)
 
-    return this.buildLocalUrl(contentHash, ext)
+    return this.buildLocalUrl(contentHash, ext, config)
   }
 
   /** 存储到 S3 */
-  private async storeS3(buffer: Buffer, storageKey: string, mime: string): Promise<string> {
-    const s3Config = this.toS3Config()
+  private async storeS3(buffer: Buffer, storageKey: string, mime: string, config?: CachePluginConfig): Promise<string> {
+    const s3Config = this.toS3Config(config)
 
     if (!s3Config.bucket) throw new Error('S3 缺少 bucket 配置')
     if (!s3Config.accessKeyId || !s3Config.secretAccessKey) throw new Error('S3 需提供访问凭证')
@@ -293,8 +348,8 @@ export class CacheService {
   }
 
   /** 存储到 WebDAV */
-  private async storeWebDav(buffer: Buffer, storageKey: string, mime: string): Promise<string> {
-    const webdavConfig = this.toWebDavConfig()
+  private async storeWebDav(buffer: Buffer, storageKey: string, mime: string, config?: CachePluginConfig): Promise<string> {
+    const webdavConfig = this.toWebDavConfig(config)
 
     if (!webdavConfig.endpoint) throw new Error('WebDAV 缺少端点配置')
     if (!webdavConfig.username || !webdavConfig.password) throw new Error('WebDAV 需提供用户名和密码')
@@ -618,9 +673,12 @@ export class CacheService {
   }
 
   /** 构建本地访问 URL */
-  private buildLocalUrl(id: string, ext: string): string {
-    if (this.publicBaseUrl) {
-      return `${this.publicBaseUrl}/${id}${ext}`
+  private buildLocalUrl(id: string, ext: string, config?: CachePluginConfig): string {
+    const publicBaseUrl = config?.publicBaseUrl || this.publicBaseUrl
+    const publicPath = config?.publicPath || this.publicPath
+
+    if (publicBaseUrl) {
+      return `${publicBaseUrl}/${id}${ext}`
     }
 
     if (!this.baseUrl) {
@@ -639,10 +697,10 @@ export class CacheService {
     }
 
     if (!this.baseUrl) {
-      return `${this.publicPath}/${id}${ext}`
+      return `${publicPath}/${id}${ext}`
     }
 
-    return `${this.baseUrl}${this.publicPath}/${id}${ext}`
+    return `${this.baseUrl}${publicPath}/${id}${ext}`
   }
 
   private async ensureCacheSpace(needed: number): Promise<void> {

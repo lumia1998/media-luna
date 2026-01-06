@@ -73,6 +73,13 @@ export const connectorFields: ConnectorField[] = [
     description: '控制模型思考的深度，medium 和 minimal 仅支持 Flash 模型'
   },
   {
+    key: 'includeThoughts',
+    label: '返回思考过程',
+    type: 'boolean',
+    default: false,
+    description: '是否在响应中包含模型的思考过程'
+  },
+  {
     key: 'filterThoughtImages',
     label: '过滤思考图片',
     type: 'boolean',

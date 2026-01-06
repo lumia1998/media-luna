@@ -29,6 +29,7 @@ async function generate(
     imageSize,
     enableGoogleSearch,
     thinkingLevel,
+    includeThoughts,
     filterThoughtImages,
     timeout
   } = config
@@ -107,10 +108,15 @@ async function generate(
   }
 
   // 添加思考配置
-  if (thinkingLevel) {
-    requestBody.generationConfig.thinkingConfig = {
-      thinkingLevel: thinkingLevel
+  if (thinkingLevel || includeThoughts) {
+    const thinkingConfig: Record<string, any> = {}
+    if (thinkingLevel) {
+      thinkingConfig.thinkingLevel = thinkingLevel
     }
+    if (includeThoughts) {
+      thinkingConfig.includeThoughts = true
+    }
+    requestBody.generationConfig.thinkingConfig = thinkingConfig
   }
 
   // 启用谷歌搜索
