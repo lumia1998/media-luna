@@ -27,13 +27,15 @@ const sizeClass = computed(() => `size-${props.size}`)
 </script>
 
 <style scoped>
+/* 加载状态 - 波普风格 */
 .loading-state {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 12px;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-secondary, #92400e);
+  font-weight: 600;
 }
 
 .loading-state.size-small {
@@ -63,7 +65,8 @@ const sizeClass = computed(() => `size-${props.size}`)
 
 .loading-icon {
   animation: spin 1s linear infinite;
-  opacity: 0.6;
+  opacity: 0.7;
+  color: var(--ml-primary-dark, #d97706);
 }
 
 @keyframes spin {

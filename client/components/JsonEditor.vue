@@ -44,20 +44,24 @@ const validateAndEmit = () => {
 </script>
 
 <style scoped>
+/* JSON 编辑器 - 波普风格 */
 .json-editor {
   width: 100%;
 }
 .code-input :deep(textarea) {
   font-family: monospace;
   font-size: 0.85rem;
-  background-color: var(--k-color-bg-2);
+  background-color: var(--ml-surface, #ffffff);
+  color: var(--ml-text, #451a03);
   line-height: 1.5;
-  border-radius: 4px;
+  border-radius: var(--ml-radius-sm, 8px);
+  border: 2px solid var(--ml-border-color, #451a03);
 }
 .error-msg {
-  color: var(--k-color-error);
+  color: var(--ml-error, #ef4444);
   font-size: 0.75rem;
-  margin-top: 4px;
+  font-weight: 700;
+  margin-top: 6px;
   display: flex;
   align-items: center;
   gap: 4px;

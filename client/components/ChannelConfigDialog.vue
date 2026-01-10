@@ -926,8 +926,8 @@ watch(() => props.modelValue, async (newVal) => {
 .overlay {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
+  background: rgba(255, 251, 235, 0.7);
+  backdrop-filter: blur(8px);
 }
 
 /* ============ 主对话框 ============ */
@@ -936,9 +936,10 @@ watch(() => props.modelValue, async (newVal) => {
   width: 800px;
   height: 80vh;
   max-height: 800px;
-  background: var(--k-card-bg);
-  border-radius: 12px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+  background: var(--ml-surface, #ffffff);
+  border: var(--ml-border, 3px solid #451a03);
+  border-radius: var(--ml-radius-lg, 16px);
+  box-shadow: var(--ml-shadow-lg, 6px 6px 0 #451a03);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -949,14 +950,14 @@ watch(() => props.modelValue, async (newVal) => {
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  border-bottom: 1px solid var(--k-color-border);
-  background: var(--k-color-bg-2);
+  border-bottom: var(--ml-border, 3px solid #451a03);
+  background: var(--ml-primary-light, #fde68a);
 }
 
 .dialog-title {
   font-size: 16px;
-  font-weight: 600;
-  color: var(--k-color-text);
+  font-weight: 800;
+  color: var(--ml-text, #451a03);
 }
 
 .close-btn {
@@ -965,17 +966,24 @@ watch(() => props.modelValue, async (newVal) => {
   justify-content: center;
   width: 32px;
   height: 32px;
-  border: none;
-  background: transparent;
-  border-radius: 6px;
+  border: 2px solid var(--ml-border-color, #451a03);
+  background: var(--ml-surface, #ffffff);
+  border-radius: var(--ml-radius-sm, 8px);
   cursor: pointer;
-  color: var(--k-color-text-description);
-  transition: all 0.2s;
+  color: var(--ml-text, #451a03);
+  transition: all 0.1s ease;
+  box-shadow: 2px 2px 0 var(--ml-border-color, #451a03);
 }
 
 .close-btn:hover {
-  background: var(--k-color-bg-1);
-  color: var(--k-color-text);
+  background: var(--ml-error-bg, #fee2e2);
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--ml-border-color, #451a03);
+}
+
+.close-btn:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--ml-border-color, #451a03);
 }
 
 .dialog-layout {
@@ -990,16 +998,16 @@ watch(() => props.modelValue, async (newVal) => {
   justify-content: flex-end;
   gap: 12px;
   padding: 16px 20px;
-  border-top: 1px solid var(--k-color-border);
-  background: var(--k-color-bg-2);
+  border-top: var(--ml-border, 3px solid #451a03);
+  background: var(--ml-bg-alt, #fef3c7);
 }
 
 /* ============ Tab 导航 ============ */
 .tab-nav {
   width: 160px;
   flex-shrink: 0;
-  background: var(--k-color-bg-2);
-  border-right: 1px solid var(--k-color-border);
+  background: var(--ml-bg-alt, #fef3c7);
+  border-right: var(--ml-border, 3px solid #451a03);
   padding: 1rem 0;
 }
 
@@ -1009,20 +1017,21 @@ watch(() => props.modelValue, async (newVal) => {
   gap: 10px;
   padding: 12px 16px;
   cursor: pointer;
-  color: var(--k-color-text-description);
-  transition: all 0.2s;
-  border-left: 3px solid transparent;
+  color: var(--ml-text-secondary, #92400e);
+  transition: all 0.1s ease;
+  border-left: 4px solid transparent;
+  font-weight: 600;
 }
 
 .tab-item:hover {
-  background: var(--k-color-bg-1);
-  color: var(--k-color-text);
+  background: var(--ml-surface, #ffffff);
+  color: var(--ml-text, #451a03);
 }
 
 .tab-item.active {
-  background: var(--k-card-bg);
-  color: var(--k-color-active);
-  border-left-color: var(--k-color-active);
+  background: var(--ml-surface, #ffffff);
+  color: var(--ml-text, #451a03);
+  border-left-color: var(--ml-primary, #fbbf24);
 }
 
 .tab-item .k-icon {
@@ -1034,17 +1043,21 @@ watch(() => props.modelValue, async (newVal) => {
   min-width: 20px;
   height: 20px;
   padding: 0 6px;
-  background: var(--k-color-bg-1);
+  background: var(--ml-surface, #ffffff);
+  border: 2px solid var(--ml-border-color, #451a03);
   border-radius: 10px;
   font-size: 11px;
+  font-weight: 800;
   display: flex;
   align-items: center;
   justify-content: center;
+  color: var(--ml-text, #451a03);
 }
 
 .tab-item.active .tab-badge {
-  background: var(--k-color-active);
-  color: white;
+  background: var(--ml-primary, #fbbf24);
+  border-color: var(--ml-border-color, #451a03);
+  color: var(--ml-text, #451a03);
 }
 
 /* ============ 内容区 ============ */
@@ -1052,13 +1065,13 @@ watch(() => props.modelValue, async (newVal) => {
   flex: 1;
   overflow-y: auto;
   padding: 1.5rem;
-  background: var(--k-card-bg);
+  background: var(--ml-surface, #ffffff);
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
 }
 
 .tab-content:hover {
-  scrollbar-color: var(--k-color-border) transparent;
+  scrollbar-color: var(--ml-border-color, #451a03) transparent;
 }
 
 .tab-content::-webkit-scrollbar {
@@ -1075,7 +1088,7 @@ watch(() => props.modelValue, async (newVal) => {
 }
 
 .tab-content:hover::-webkit-scrollbar-thumb {
-  background-color: var(--k-color-border);
+  background-color: var(--ml-border-color, #451a03);
 }
 
 .content-section {
@@ -1089,14 +1102,14 @@ watch(() => props.modelValue, async (newVal) => {
 .section-header h4 {
   margin: 0 0 4px 0;
   font-size: 16px;
-  font-weight: 600;
-  color: var(--k-color-text);
+  font-weight: 800;
+  color: var(--ml-text, #451a03);
 }
 
 .section-header p {
   margin: 0;
   font-size: 13px;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-secondary, #92400e);
 }
 
 /* ============ 表单样式 ============ */
@@ -1117,37 +1130,37 @@ watch(() => props.modelValue, async (newVal) => {
   display: block;
   margin-bottom: 6px;
   font-size: 13px;
-  color: var(--k-color-text);
-  font-weight: 500;
+  color: var(--ml-text, #451a03);
+  font-weight: 700;
 }
 
 .form-label.required::after {
   content: '*';
-  color: var(--k-color-error, #f56c6c);
+  color: var(--ml-error, #ef4444);
   margin-left: 4px;
 }
 
 .form-hint {
   margin-top: 6px;
   font-size: 12px;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-secondary, #92400e);
 }
 
 /* 连接器显示 */
 .connector-display {
   padding: 10px 12px;
-  border: 1px solid var(--k-color-border);
-  border-radius: 6px;
-  background: var(--k-color-bg-2);
+  border: 2px solid var(--ml-border-color, #451a03);
+  border-radius: var(--ml-radius-sm, 8px);
+  background: var(--ml-bg-alt, #fef3c7);
 }
 
 .connector-name {
-  font-weight: 500;
-  color: var(--k-color-text);
+  font-weight: 700;
+  color: var(--ml-text, #451a03);
 }
 
 .connector-placeholder {
-  color: var(--k-color-text-description);
+  color: var(--ml-text-secondary, #92400e);
   font-style: italic;
 }
 
@@ -1160,7 +1173,7 @@ watch(() => props.modelValue, async (newVal) => {
 
 .switch-label {
   font-size: 13px;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-secondary, #92400e);
 }
 
 .section-divider {
@@ -1168,16 +1181,16 @@ watch(() => props.modelValue, async (newVal) => {
   align-items: center;
   margin: 1.5rem 0 1rem;
   font-size: 13px;
-  font-weight: 500;
-  color: var(--k-color-text);
+  font-weight: 700;
+  color: var(--ml-text, #451a03);
 }
 
 .section-divider::before,
 .section-divider::after {
   content: '';
   flex: 1;
-  height: 1px;
-  background: var(--k-color-border);
+  height: 2px;
+  background: var(--ml-border-color, #451a03);
 }
 
 .section-divider::before {
@@ -1194,7 +1207,7 @@ watch(() => props.modelValue, async (newVal) => {
   align-items: center;
   gap: 8px;
   padding: 16px;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-secondary, #92400e);
   font-size: 13px;
 }
 
@@ -1209,7 +1222,7 @@ watch(() => props.modelValue, async (newVal) => {
 
 .empty-config-hint {
   padding: 16px;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-secondary, #92400e);
   font-size: 13px;
   font-style: italic;
 }
@@ -1221,7 +1234,7 @@ watch(() => props.modelValue, async (newVal) => {
   justify-content: center;
   gap: 12px;
   padding: 3rem;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-secondary, #92400e);
 }
 
 .empty-hint .k-icon {
@@ -1234,15 +1247,16 @@ watch(() => props.modelValue, async (newVal) => {
   align-items: center;
   gap: 8px;
   padding: 10px 14px;
-  background: var(--k-color-bg-2);
-  border-radius: 8px;
+  background: var(--ml-bg-alt, #fef3c7);
+  border: 2px solid var(--ml-border-color, #451a03);
+  border-radius: var(--ml-radius-sm, 8px);
   font-size: 13px;
-  color: var(--k-color-text-description);
+  color: var(--ml-text, #451a03);
   margin-bottom: 1.5rem;
 }
 
 .override-hint-bar .k-icon {
-  color: var(--k-color-active);
+  color: var(--ml-primary-dark, #d97706);
 }
 
 /* ============ 中间件流程 ============ */
@@ -1261,10 +1275,11 @@ watch(() => props.modelValue, async (newVal) => {
   align-items: center;
   gap: 12px;
   padding: 12px 16px;
-  background: var(--k-card-bg);
-  border: 1px solid var(--k-color-border);
-  border-radius: 10px;
-  transition: all 0.2s;
+  background: var(--ml-surface, #ffffff);
+  border: 2px solid var(--ml-border-color, #451a03);
+  border-radius: var(--ml-radius, 12px);
+  transition: all 0.1s ease;
+  box-shadow: 2px 2px 0 var(--ml-border-color, #451a03);
 }
 
 .phase-icon {
@@ -1273,15 +1288,16 @@ watch(() => props.modelValue, async (newVal) => {
   justify-content: center;
   width: 36px;
   height: 36px;
-  border-radius: 8px;
+  border-radius: var(--ml-radius-sm, 8px);
   font-size: 16px;
+  border: 2px solid;
 }
 
-.phase-prepare .phase-icon { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
-.phase-pre .phase-icon { background: rgba(139, 92, 246, 0.15); color: #8b5cf6; }
-.phase-request .phase-icon { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
-.phase-post .phase-icon { background: rgba(249, 115, 22, 0.15); color: #f97316; }
-.phase-finalize .phase-icon { background: rgba(99, 102, 241, 0.15); color: #6366f1; }
+.phase-prepare .phase-icon { background: #dbeafe; color: #3b82f6; border-color: #3b82f6; }
+.phase-pre .phase-icon { background: #ede9fe; color: #8b5cf6; border-color: #8b5cf6; }
+.phase-request .phase-icon { background: #dcfce7; color: #22c55e; border-color: #22c55e; }
+.phase-post .phase-icon { background: #ffedd5; color: #f97316; border-color: #f97316; }
+.phase-finalize .phase-icon { background: #e0e7ff; color: #6366f1; border-color: #6366f1; }
 
 .phase-info {
   flex: 1;
@@ -1292,24 +1308,25 @@ watch(() => props.modelValue, async (newVal) => {
 
 .phase-name {
   font-size: 14px;
-  font-weight: 600;
-  color: var(--k-color-text);
+  font-weight: 800;
+  color: var(--ml-text, #451a03);
 }
 
 .phase-desc {
   font-size: 11px;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-secondary, #92400e);
 }
 
 .phase-badge {
   min-width: 24px;
   height: 24px;
   padding: 0 8px;
-  background: var(--k-color-bg-2);
+  background: var(--ml-bg-alt, #fef3c7);
+  border: 2px solid var(--ml-border-color, #451a03);
   border-radius: 12px;
   font-size: 12px;
-  font-weight: 500;
-  color: var(--k-color-text-description);
+  font-weight: 800;
+  color: var(--ml-text, #451a03);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1320,7 +1337,7 @@ watch(() => props.modelValue, async (newVal) => {
   flex-direction: column;
   margin-left: 24px;
   padding-left: 24px;
-  border-left: 2px solid var(--k-color-border);
+  border-left: 3px solid var(--ml-border-color, #451a03);
 }
 
 .mw-item {
@@ -1333,12 +1350,12 @@ watch(() => props.modelValue, async (newVal) => {
   left: -25px;
   top: 50%;
   width: 12px;
-  height: 2px;
-  background: var(--k-color-border);
+  height: 3px;
+  background: var(--ml-border-color, #451a03);
 }
 
 .mw-item.has-override::before {
-  background: var(--k-color-active);
+  background: var(--ml-primary, #fbbf24);
 }
 
 .mw-card {
@@ -1347,33 +1364,34 @@ watch(() => props.modelValue, async (newVal) => {
   gap: 12px;
   padding: 10px 14px;
   margin: 6px 0;
-  background: var(--k-card-bg);
-  border: 1px solid var(--k-color-border);
-  border-radius: 8px;
-  transition: all 0.2s;
+  background: var(--ml-surface, #ffffff);
+  border: 2px solid var(--ml-border-color, #451a03);
+  border-radius: var(--ml-radius-sm, 8px);
+  transition: all 0.1s ease;
+  box-shadow: 2px 2px 0 var(--ml-border-color, #451a03);
 }
 
 .mw-item.has-override .mw-card {
-  border-color: var(--k-color-active);
-  background: var(--k-color-active-bg);
+  border-color: var(--ml-primary, #fbbf24);
+  background: var(--ml-primary-light, #fde68a);
+  box-shadow: 2px 2px 0 var(--ml-primary-dark, #d97706);
 }
 
 .mw-status {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
-  background: var(--k-color-text-description);
+  background: var(--ml-text-secondary, #92400e);
   flex-shrink: 0;
+  border: 2px solid var(--ml-border-color, #451a03);
 }
 
 .mw-status.active {
   background: #22c55e;
-  box-shadow: 0 0 8px rgba(34, 197, 94, 0.4);
 }
 
 .mw-status.override {
-  background: var(--k-color-active);
-  box-shadow: 0 0 8px var(--k-color-active);
+  background: var(--ml-primary, #fbbf24);
 }
 
 .mw-content {
@@ -1386,13 +1404,13 @@ watch(() => props.modelValue, async (newVal) => {
 
 .mw-name {
   font-size: 13px;
-  font-weight: 500;
-  color: var(--k-color-text);
+  font-weight: 700;
+  color: var(--ml-text, #451a03);
 }
 
 .mw-desc {
   font-size: 11px;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-secondary, #92400e);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1406,8 +1424,8 @@ watch(() => props.modelValue, async (newVal) => {
 .empty-phase {
   margin-left: 24px;
   padding: 12px 24px;
-  border-left: 2px dashed var(--k-color-border);
-  color: var(--k-color-text-description);
+  border-left: 3px dashed var(--ml-border-color, #451a03);
+  color: var(--ml-text-secondary, #92400e);
   font-size: 12px;
   font-style: italic;
 }
@@ -1420,9 +1438,9 @@ watch(() => props.modelValue, async (newVal) => {
 }
 
 .connector-line {
-  width: 2px;
+  width: 3px;
   height: 8px;
-  background: var(--k-color-border);
+  background: var(--ml-border-color, #451a03);
 }
 
 .connector-arrow {
@@ -1431,7 +1449,7 @@ watch(() => props.modelValue, async (newVal) => {
   justify-content: center;
   width: 20px;
   height: 20px;
-  color: var(--k-color-text-description);
+  color: var(--ml-text, #451a03);
   font-size: 12px;
 }
 
@@ -1441,8 +1459,9 @@ watch(() => props.modelValue, async (newVal) => {
   gap: 16px;
   margin-top: 1.5rem;
   padding: 12px 16px;
-  background: var(--k-color-bg-2);
-  border-radius: 10px;
+  background: var(--ml-bg-alt, #fef3c7);
+  border: 2px solid var(--ml-border-color, #451a03);
+  border-radius: var(--ml-radius, 12px);
 }
 
 .footer-item {
@@ -1450,14 +1469,16 @@ watch(() => props.modelValue, async (newVal) => {
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  color: var(--k-color-text-description);
+  color: var(--ml-text, #451a03);
+  font-weight: 600;
 }
 
 .dot {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
-  background: var(--k-color-text-description);
+  background: var(--ml-text-secondary, #92400e);
+  border: 2px solid var(--ml-border-color, #451a03);
 }
 
 .dot.active {
@@ -1465,7 +1486,7 @@ watch(() => props.modelValue, async (newVal) => {
 }
 
 .dot.override {
-  background: var(--k-color-active);
+  background: var(--ml-primary, #fbbf24);
 }
 
 /* ============ 插件配置 ============ */
@@ -1476,14 +1497,16 @@ watch(() => props.modelValue, async (newVal) => {
 }
 
 .plugin-override-card {
-  border: 1px solid var(--k-color-border);
-  border-radius: 10px;
+  border: 2px solid var(--ml-border-color, #451a03);
+  border-radius: var(--ml-radius, 12px);
   overflow: hidden;
-  transition: all 0.2s;
+  transition: all 0.1s ease;
+  box-shadow: 2px 2px 0 var(--ml-border-color, #451a03);
 }
 
 .plugin-override-card.expanded {
-  border-color: var(--k-color-active);
+  border-color: var(--ml-primary, #fbbf24);
+  box-shadow: 3px 3px 0 var(--ml-primary-dark, #d97706);
 }
 
 .plugin-header {
@@ -1491,13 +1514,13 @@ watch(() => props.modelValue, async (newVal) => {
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  background: var(--k-color-bg-2);
+  background: var(--ml-bg-alt, #fef3c7);
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background 0.1s ease;
 }
 
 .plugin-header:hover {
-  background: var(--k-color-bg-1);
+  background: var(--ml-primary-light, #fde68a);
 }
 
 .plugin-info {
@@ -1507,16 +1530,18 @@ watch(() => props.modelValue, async (newVal) => {
 }
 
 .plugin-name {
-  font-weight: 500;
-  color: var(--k-color-text);
+  font-weight: 700;
+  color: var(--ml-text, #451a03);
 }
 
 .override-badge {
   font-size: 11px;
   padding: 2px 8px;
-  background: var(--k-color-active);
-  color: white;
+  background: var(--ml-primary, #fbbf24);
+  color: var(--ml-text, #451a03);
+  border: 2px solid var(--ml-border-color, #451a03);
   border-radius: 10px;
+  font-weight: 700;
 }
 
 .plugin-actions {
@@ -1527,8 +1552,8 @@ watch(() => props.modelValue, async (newVal) => {
 
 .plugin-config-fields {
   padding: 16px;
-  background: var(--k-card-bg);
-  border-top: 1px solid var(--k-color-border);
+  background: var(--ml-surface, #ffffff);
+  border-top: 2px solid var(--ml-border-color, #451a03);
 }
 
 /* ============ 右侧连接器选择面板 ============ */
@@ -1537,9 +1562,10 @@ watch(() => props.modelValue, async (newVal) => {
   width: 340px;
   height: 80vh;
   max-height: 800px;
-  background: var(--k-card-bg);
-  border-radius: 12px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+  background: var(--ml-surface, #ffffff);
+  border: var(--ml-border, 3px solid #451a03);
+  border-radius: var(--ml-radius-lg, 16px);
+  box-shadow: var(--ml-shadow-lg, 6px 6px 0 #451a03);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1550,16 +1576,16 @@ watch(() => props.modelValue, async (newVal) => {
   align-items: center;
   gap: 10px;
   padding: 16px 20px;
-  border-bottom: 1px solid var(--k-color-border);
-  background: var(--k-color-bg-2);
+  border-bottom: var(--ml-border, 3px solid #451a03);
+  background: var(--ml-primary-light, #fde68a);
   font-size: 15px;
-  font-weight: 600;
-  color: var(--k-color-text);
+  font-weight: 800;
+  color: var(--ml-text, #451a03);
 }
 
 .side-panel-header .k-icon {
   font-size: 18px;
-  color: var(--k-color-active);
+  color: var(--ml-text, #451a03);
 }
 
 /* 分类标签 */
@@ -1567,7 +1593,8 @@ watch(() => props.modelValue, async (newVal) => {
   display: flex;
   gap: 6px;
   padding: 12px 16px;
-  border-bottom: 1px solid var(--k-color-border);
+  border-bottom: 2px solid var(--ml-border-color, #451a03);
+  background: var(--ml-bg-alt, #fef3c7);
 }
 
 .category-tab {
@@ -1576,22 +1603,28 @@ watch(() => props.modelValue, async (newVal) => {
   justify-content: center;
   gap: 4px;
   padding: 6px 12px;
-  border-radius: 16px;
+  border-radius: var(--ml-radius, 12px);
   cursor: pointer;
   font-size: 12px;
-  color: var(--k-color-text-description);
-  background: var(--k-color-bg-2);
-  transition: all 0.2s;
+  font-weight: 700;
+  color: var(--ml-text, #451a03);
+  background: var(--ml-surface, #ffffff);
+  border: 2px solid var(--ml-border-color, #451a03);
+  transition: all 0.1s ease;
   flex: 1;
+  box-shadow: 1px 1px 0 var(--ml-border-color, #451a03);
 }
 
 .category-tab:hover {
-  background: var(--k-color-bg-1);
+  background: var(--ml-primary-light, #fde68a);
+  transform: translate(-1px, -1px);
+  box-shadow: 2px 2px 0 var(--ml-border-color, #451a03);
 }
 
 .category-tab.active {
-  background: var(--k-color-active);
-  color: white;
+  background: var(--ml-primary, #fbbf24);
+  transform: translate(1px, 1px);
+  box-shadow: none;
 }
 
 .category-tab .k-icon {
@@ -1610,19 +1643,20 @@ watch(() => props.modelValue, async (newVal) => {
   gap: 8px;
   margin: 12px 16px;
   padding: 8px 12px;
-  background: var(--k-color-bg-2);
-  border: 1px solid var(--k-color-border);
-  border-radius: 8px;
-  transition: all 0.2s;
+  background: var(--ml-surface, #ffffff);
+  border: 2px solid var(--ml-border-color, #451a03);
+  border-radius: var(--ml-radius-sm, 8px);
+  transition: all 0.1s ease;
+  box-shadow: 2px 2px 0 var(--ml-border-color, #451a03);
 }
 
 .search-box:focus-within {
-  border-color: var(--k-color-active);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--k-color-active) 15%, transparent);
+  border-color: var(--ml-primary, #fbbf24);
+  box-shadow: 2px 2px 0 var(--ml-primary-dark, #d97706);
 }
 
 .search-box .k-icon {
-  color: var(--k-color-text-description);
+  color: var(--ml-text-secondary, #92400e);
   font-size: 14px;
 }
 
@@ -1632,11 +1666,12 @@ watch(() => props.modelValue, async (newVal) => {
   background: transparent;
   outline: none;
   font-size: 13px;
-  color: var(--k-color-text);
+  font-weight: 600;
+  color: var(--ml-text, #451a03);
 }
 
 .search-input::placeholder {
-  color: var(--k-color-text-description);
+  color: var(--ml-text-secondary, #92400e);
 }
 
 /* 连接器列表 */
@@ -1649,7 +1684,7 @@ watch(() => props.modelValue, async (newVal) => {
 }
 
 .connector-list:hover {
-  scrollbar-color: var(--k-color-border) transparent;
+  scrollbar-color: var(--ml-border-color, #451a03) transparent;
 }
 
 .connector-list::-webkit-scrollbar {
@@ -1666,7 +1701,7 @@ watch(() => props.modelValue, async (newVal) => {
 }
 
 .connector-list:hover::-webkit-scrollbar-thumb {
-  background-color: var(--k-color-border);
+  background-color: var(--ml-border-color, #451a03);
 }
 
 /* 连接器卡片 */
@@ -1677,35 +1712,39 @@ watch(() => props.modelValue, async (newVal) => {
   gap: 12px;
   padding: 12px;
   margin-bottom: 8px;
-  background: var(--k-color-bg-2);
-  border: 2px solid transparent;
-  border-radius: 10px;
+  background: var(--ml-surface, #ffffff);
+  border: 2px solid var(--ml-border-color, #451a03);
+  border-radius: var(--ml-radius, 12px);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.1s ease;
+  box-shadow: 2px 2px 0 var(--ml-border-color, #451a03);
 }
 
 .connector-card:hover {
-  background: var(--k-color-bg-1);
-  border-color: var(--k-color-border);
+  background: var(--ml-bg-alt, #fef3c7);
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--ml-border-color, #451a03);
 }
 
 .connector-card.selected {
-  background: color-mix(in srgb, var(--k-color-active) 8%, var(--k-color-bg-2));
-  border-color: var(--k-color-active);
+  background: var(--ml-primary-light, #fde68a);
+  border-color: var(--ml-primary, #fbbf24);
+  box-shadow: 3px 3px 0 var(--ml-primary-dark, #d97706);
 }
 
 .selected-check {
   position: absolute;
   top: 8px;
   right: 8px;
-  width: 20px;
-  height: 20px;
-  background: var(--k-color-active);
+  width: 22px;
+  height: 22px;
+  background: var(--ml-primary, #fbbf24);
+  border: 2px solid var(--ml-border-color, #451a03);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
+  color: var(--ml-text, #451a03);
   font-size: 10px;
 }
 
@@ -1713,24 +1752,28 @@ watch(() => props.modelValue, async (newVal) => {
 .card-logo {
   width: 40px;
   height: 40px;
-  border-radius: 8px;
+  border-radius: var(--ml-radius-sm, 8px);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
   overflow: hidden;
+  border: 2px solid;
 }
 
 .card-logo.logo-image {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(16, 185, 129, 0.05));
+  background: #dcfce7;
+  border-color: #10b981;
 }
 
 .card-logo.logo-audio {
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(139, 92, 246, 0.05));
+  background: #ede9fe;
+  border-color: #8b5cf6;
 }
 
 .card-logo.logo-video {
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(245, 158, 11, 0.05));
+  background: #ffedd5;
+  border-color: #f59e0b;
 }
 
 .logo-svg {
@@ -1773,14 +1816,14 @@ watch(() => props.modelValue, async (newVal) => {
 
 .card-name {
   font-size: 13px;
-  font-weight: 600;
-  color: var(--k-color-text);
+  font-weight: 800;
+  color: var(--ml-text, #451a03);
   margin-bottom: 4px;
 }
 
 .card-desc {
   font-size: 11px;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-secondary, #92400e);
   line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -1797,10 +1840,11 @@ watch(() => props.modelValue, async (newVal) => {
 }
 
 .type-dot {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
-  background: var(--k-color-text-description);
+  background: var(--ml-text-secondary, #92400e);
+  border: 2px solid var(--ml-border-color, #451a03);
 }
 
 .type-dot.image {
@@ -1823,7 +1867,7 @@ watch(() => props.modelValue, async (newVal) => {
   justify-content: center;
   gap: 8px;
   padding: 32px;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-secondary, #92400e);
   font-size: 13px;
 }
 
@@ -1835,10 +1879,11 @@ watch(() => props.modelValue, async (newVal) => {
 /* 底部 */
 .side-panel-footer {
   padding: 12px 16px;
-  border-top: 1px solid var(--k-color-border);
-  background: var(--k-color-bg-2);
+  border-top: var(--ml-border, 3px solid #451a03);
+  background: var(--ml-bg-alt, #fef3c7);
   font-size: 12px;
-  color: var(--k-color-text-description);
+  font-weight: 700;
+  color: var(--ml-text, #451a03);
   text-align: center;
 }
 

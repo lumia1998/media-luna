@@ -294,8 +294,8 @@ onMounted(() => {
   max-width: 200px;
   max-height: 150px;
   object-fit: contain;
-  border-radius: 8px;
-  border: 1px solid var(--k-color-border);
+  border-radius: var(--ml-radius, 12px);
+  border: 2px solid var(--ml-border-color, #451a03);
 }
 
 .form-item {
@@ -306,26 +306,51 @@ onMounted(() => {
 
 .form-label {
   font-size: 0.9rem;
-  font-weight: 500;
-  color: var(--k-color-text);
+  font-weight: 700;
+  color: var(--ml-text, #451a03);
 }
 
 .form-label.required::after {
   content: ' *';
-  color: var(--k-color-error);
+  color: var(--ml-error, #ef4444);
 }
 
 .prompt-preview {
-  background: var(--k-color-bg-2);
+  background: var(--ml-bg-alt, #fef3c7);
   padding: 0.75rem;
-  border-radius: 6px;
+  border-radius: var(--ml-radius-sm, 8px);
+  border: 2px solid var(--ml-border-color, #451a03);
   font-family: monospace;
   font-size: 0.85rem;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-secondary, #92400e);
   max-height: 80px;
   overflow-y: auto;
   white-space: pre-wrap;
   word-break: break-word;
+  /* 隐藏式滚动条 */
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.prompt-preview:hover {
+  scrollbar-color: var(--ml-border-color, #451a03) transparent;
+}
+
+.prompt-preview::-webkit-scrollbar {
+  width: 4px;
+}
+
+.prompt-preview::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.prompt-preview::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 2px;
+}
+
+.prompt-preview:hover::-webkit-scrollbar-thumb {
+  background-color: var(--ml-border-color, #451a03);
 }
 
 .dialog-footer {

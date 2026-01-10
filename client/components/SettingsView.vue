@@ -1,7 +1,7 @@
 <template>
   <div class="settings-view">
     <!-- 侧边栏导航 -->
-    <aside class="sidebar">
+    <aside class="sidebar pop-card no-hover">
       <nav class="nav-list">
         <div
           v-for="panel in panels"
@@ -10,7 +10,7 @@
           :class="{ active: activePanel === panel.id }"
           @click="activePanel = panel.id"
         >
-          <k-icon :name="panel.icon"></k-icon>
+          <span class="nav-emoji">{{ getPanelEmoji(panel.icon) }}</span>
           <span>{{ panel.name }}</span>
         </div>
       </nav>
@@ -18,8 +18,8 @@
 
     <!-- 主内容区 -->
     <main class="main-content">
-      <div v-if="loading" class="loading">
-        <k-icon name="sync" class="spin"></k-icon>
+      <div v-if="loading" class="loading pop-card no-hover">
+        <span class="spin">🔄</span>
         加载中...
       </div>
 
@@ -42,16 +42,15 @@
 
         <!-- 自定义面板 -->
         <template v-else-if="currentPanel.type === 'custom' && currentPanel.configFields">
-          <div class="custom-panel">
+          <div class="custom-panel pop-card no-hover">
             <ConfigRenderer
               :fields="currentPanel.configFields"
               v-model="customConfig"
             />
             <div class="actions">
-              <k-button type="primary" @click="saveCustomConfig">
-                <template #icon><k-icon name="save"></k-icon></template>
-                保存
-              </k-button>
+              <button class="pop-btn primary" @click="saveCustomConfig">
+                💾 保存
+              </button>
             </div>
           </div>
         </template>
@@ -62,11 +61,34 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { message } from '@koishijs/client'
 import { settingsApi, SettingsPanelInfo } from '../api'
 import ConfigRenderer from './ConfigRenderer.vue'
 import MiddlewaresPanel from './settings/MiddlewaresPanel.vue'
 import PluginsPanel from './settings/PluginsPanel.vue'
+
+// 图标映射
+const iconEmojiMap: Record<string, string> = {
+  'layers': '🧱',
+  'puzzle-piece': '🧩',
+  'cog': '⚙️',
+  'settings': '⚙️',
+  'sliders': '🎚️',
+  'paint-brush': '🎨',
+  'image': '🖼️',
+  'video': '🎬',
+  'music': '🎵',
+  'folder': '📁',
+  'file': '📄',
+  'database': '💾',
+  'cloud': '☁️',
+  'sync': '🔄',
+  'refresh': '🔄',
+  'default': '📋'
+}
+
+const getPanelEmoji = (icon: string) => {
+  return iconEmojiMap[icon] || iconEmojiMap['default']
+}
 
 // 状态
 const loading = ref(true)
@@ -87,7 +109,7 @@ const loadPanels = async () => {
       activePanel.value = panels.value[0].id
     }
   } catch (e) {
-    message.error('加载设置面板失败')
+    alert('加载设置面板失败')
   }
 }
 
@@ -109,10 +131,10 @@ const saveCustomConfig = async () => {
   if (!currentPanel.value) return
   try {
     await settingsApi.update(currentPanel.value.id, customConfig.value)
-    message.success('保存成功')
+    alert('保存成功')
     await loadPanels()
   } catch (e) {
-    message.error('保存失败')
+    alert('保存失败')
   }
 }
 
@@ -129,51 +151,65 @@ onMounted(async () => {
 })
 </script>
 
-<style scoped>
+<style lang="scss">
+@use '../styles/theme.scss';
+</style>
+
+<style scoped lang="scss">
+/* ============ 视图容器 ============ */
 .settings-view {
   display: flex;
-  gap: 2rem;
+  gap: 24px;
   height: 100%;
   min-height: 0;
+  overflow: hidden; /* 视图本身不滚动 */
 }
 
+/* ============ 侧边栏 ============ */
 .sidebar {
-  width: 180px;
+  width: 200px;
   flex-shrink: 0;
+  padding: 12px;
 }
 
 .nav-list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  background: var(--k-color-bg-2);
-  border-radius: 12px;
-  padding: 8px;
+  gap: 6px;
 }
 
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  border-radius: 8px;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: var(--ml-radius);
   cursor: pointer;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-muted);
   font-size: 14px;
-  transition: all 0.2s;
+  font-weight: 600;
+  border: 2px solid transparent;
+  transition: all 0.2s ease;
 }
 
 .nav-item:hover {
-  background: var(--k-color-bg-1);
-  color: var(--k-color-text);
+  background: var(--ml-cream);
+  color: var(--ml-text);
+  border-color: var(--ml-border-color);
 }
 
 .nav-item.active {
-  background: var(--k-card-bg);
-  color: var(--k-color-active);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  background: var(--ml-primary);
+  color: var(--ml-text);
+  border-color: var(--ml-border-color);
+  box-shadow: var(--ml-shadow-sm);
 }
 
+.nav-emoji {
+  font-size: 18px;
+}
+
+/* ============ 主内容区 ============ */
 .main-content {
   flex: 1;
   min-width: 0;
@@ -187,12 +223,14 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 12px;
   padding: 4rem;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-muted);
+  font-weight: 600;
 }
 
 .spin {
+  font-size: 24px;
   animation: spin 1s linear infinite;
 }
 
@@ -200,24 +238,26 @@ onMounted(async () => {
   to { transform: rotate(360deg); }
 }
 
+/* ============ 面板标题 ============ */
 .panel-header {
   flex-shrink: 0;
-  margin-bottom: 1.5rem;
+  margin-bottom: 20px;
 }
 
 .panel-header h2 {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: var(--k-color-text);
-  margin: 0 0 0.5rem 0;
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: var(--ml-text);
+  margin: 0 0 8px 0;
 }
 
 .panel-header p {
-  color: var(--k-color-text-description);
+  color: var(--ml-text-muted);
   font-size: 14px;
   margin: 0;
 }
 
+/* ============ 面板内容 ============ */
 .panel-content {
   flex: 1;
   min-height: 0;
@@ -228,10 +268,9 @@ onMounted(async () => {
 }
 
 .panel-content:hover {
-  scrollbar-color: var(--k-color-border) transparent;
+  scrollbar-color: var(--ml-border-color) transparent;
 }
 
-/* Webkit 隐藏式滚动条 */
 .panel-content::-webkit-scrollbar {
   width: 6px;
 }
@@ -243,20 +282,16 @@ onMounted(async () => {
 .panel-content::-webkit-scrollbar-thumb {
   background-color: transparent;
   border-radius: 3px;
-  transition: background-color 0.2s;
 }
 
 .panel-content:hover::-webkit-scrollbar-thumb {
-  background-color: var(--k-color-border);
+  background-color: var(--ml-border-color);
 }
 
 .custom-panel {
   flex: 1;
   min-height: 0;
-  background: var(--k-card-bg);
-  border: 1px solid var(--k-color-border);
-  border-radius: 12px;
-  padding: 1.5rem;
+  padding: 24px;
   overflow-y: auto;
   /* 隐藏式滚动条 */
   scrollbar-width: thin;
@@ -264,10 +299,9 @@ onMounted(async () => {
 }
 
 .custom-panel:hover {
-  scrollbar-color: var(--k-color-border) transparent;
+  scrollbar-color: var(--ml-border-color) transparent;
 }
 
-/* Webkit 隐藏式滚动条 */
 .custom-panel::-webkit-scrollbar {
   width: 6px;
 }
@@ -279,16 +313,15 @@ onMounted(async () => {
 .custom-panel::-webkit-scrollbar-thumb {
   background-color: transparent;
   border-radius: 3px;
-  transition: background-color 0.2s;
 }
 
 .custom-panel:hover::-webkit-scrollbar-thumb {
-  background-color: var(--k-color-border);
+  background-color: var(--ml-border-color);
 }
 
 .actions {
-  margin-top: 1.5rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--k-color-border);
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 2px solid var(--ml-border-color);
 }
 </style>

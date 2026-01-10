@@ -1,7 +1,7 @@
 <template>
-  <div class="ml-view-container">
+  <div class="tasks-view">
     <!-- 工具栏 -->
-    <div class="tasks-toolbar">
+    <div class="tasks-toolbar pop-card no-hover">
       <div class="toolbar-left">
         <!-- 时间范围切换 -->
         <div class="btn-group">
@@ -23,74 +23,59 @@
         <!-- 视图切换 -->
         <div class="btn-group">
           <button
-            class="group-btn icon-only"
+            class="group-btn"
             :class="{ active: viewMode === 'list' }"
             @click="viewMode = 'list'"
             title="列表视图"
-          >
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-              <rect x="3" y="4" width="18" height="3" rx="1"/>
-              <rect x="3" y="10.5" width="18" height="3" rx="1"/>
-              <rect x="3" y="17" width="18" height="3" rx="1"/>
-            </svg>
-          </button>
+          >📋</button>
           <button
-            class="group-btn icon-only"
+            class="group-btn"
             :class="{ active: viewMode === 'gallery' }"
             @click="viewMode = 'gallery'"
             title="画廊视图"
-          >
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-              <rect x="3" y="3" width="8" height="8" rx="1"/>
-              <rect x="13" y="3" width="8" height="8" rx="1"/>
-              <rect x="3" y="13" width="8" height="8" rx="1"/>
-              <rect x="13" y="13" width="8" height="8" rx="1"/>
-            </svg>
-          </button>
+          >🎴</button>
         </div>
       </div>
       <div class="toolbar-right">
-        <button class="toolbar-btn" @click="fetchData">
-          <k-icon name="refresh"></k-icon>
-          <span>刷新</span>
+        <button class="pop-btn small" @click="fetchData">
+          🔄 刷新
         </button>
-        <button class="toolbar-btn danger" @click="openCleanupDialog">
-          <k-icon name="delete"></k-icon>
-          <span>清理</span>
+        <button class="pop-btn small danger" @click="openCleanupDialog">
+          🗑️ 清理
         </button>
       </div>
     </div>
     <div class="stats-grid" v-if="stats && viewMode === 'list'">
-      <div class="stat-card">
-        <div class="stat-icon total"><k-icon name="clipboard-list"></k-icon></div>
+      <div class="stat-card pop-card no-hover">
+        <div class="stat-icon total">📋</div>
         <div class="stat-content">
           <div class="stat-value">{{ stats.total }}</div>
           <div class="stat-label">总任务数</div>
         </div>
       </div>
-      <div class="stat-card">
-        <div class="stat-icon success"><k-icon name="check-circle"></k-icon></div>
+      <div class="stat-card pop-card no-hover">
+        <div class="stat-icon success">✅</div>
         <div class="stat-content">
           <div class="stat-value success">{{ stats.byStatus.success }}</div>
           <div class="stat-label">成功</div>
         </div>
       </div>
-      <div class="stat-card">
-        <div class="stat-icon failed"><k-icon name="exclamation-triangle"></k-icon></div>
+      <div class="stat-card pop-card no-hover">
+        <div class="stat-icon failed">⚠️</div>
         <div class="stat-content">
           <div class="stat-value failed">{{ stats.byStatus.failed }}</div>
           <div class="stat-label">失败</div>
         </div>
       </div>
-      <div class="stat-card">
-        <div class="stat-icon processing"><k-icon name="clock"></k-icon></div>
+      <div class="stat-card pop-card no-hover">
+        <div class="stat-icon processing">⏳</div>
         <div class="stat-content">
           <div class="stat-value pending">{{ stats.byStatus.pending + stats.byStatus.processing }}</div>
           <div class="stat-label">进行中</div>
         </div>
       </div>
-      <div class="stat-card">
-        <div class="stat-icon rate"><k-icon name="chart-pie"></k-icon></div>
+      <div class="stat-card pop-card no-hover">
+        <div class="stat-icon rate">📊</div>
         <div class="stat-content">
           <div class="stat-value">{{ stats.successRate }}</div>
           <div class="stat-label">成功率</div>
@@ -99,81 +84,73 @@
     </div>
 
     <!-- 筛选栏 (固定) -->
-    <div class="filter-bar">
+    <div class="filter-bar pop-card no-hover">
       <div class="filter-group">
         <!-- 批量选择控制 -->
         <div class="batch-select-control" v-if="viewMode === 'list'">
-          <el-checkbox
-            v-model="isAllSelected"
-            :indeterminate="isIndeterminate"
-            @change="toggleSelectAll"
-          />
+          <label class="checkbox-wrapper">
+            <input
+              type="checkbox"
+              :checked="isAllSelected"
+              :indeterminate="isIndeterminate"
+              @change="toggleSelectAll(($event.target as HTMLInputElement).checked)"
+            />
+            <span class="checkbox-mark"></span>
+          </label>
         </div>
-        <el-select
+        <select
           v-model="filter.status"
-          placeholder="所有状态"
-          clearable
+          class="pop-select small"
           @change="handleFilterChange"
-          style="width: 120px"
         >
-          <el-option label="等待中" value="pending"></el-option>
-          <el-option label="处理中" value="processing"></el-option>
-          <el-option label="成功" value="success"></el-option>
-          <el-option label="失败" value="failed"></el-option>
-        </el-select>
-        <el-select
+          <option value="">所有状态</option>
+          <option value="pending">等待中</option>
+          <option value="processing">处理中</option>
+          <option value="success">成功</option>
+          <option value="failed">失败</option>
+        </select>
+        <select
           v-model="filter.channelId"
-          placeholder="所有渠道"
-          clearable
+          class="pop-select small"
           @change="handleFilterChange"
-          style="width: 140px"
         >
-          <el-option
+          <option :value="undefined">所有渠道</option>
+          <option
             v-for="ch in channels"
             :key="ch.id"
-            :label="ch.name || `渠道 ${ch.id}`"
             :value="ch.id"
-          ></el-option>
-        </el-select>
-        <el-select
+          >{{ ch.name || `渠道 ${ch.id}` }}</option>
+        </select>
+        <select
           v-model="filter.mediaType"
-          placeholder="所有类型"
-          clearable
+          class="pop-select small"
           @change="handleFilterChange"
-          style="width: 110px"
         >
-          <el-option label="图片" value="image"></el-option>
-          <el-option label="视频" value="video"></el-option>
-          <el-option label="音频" value="audio"></el-option>
-        </el-select>
-        <el-input
-          v-model="filter.uid"
-          placeholder="用户 UID"
-          clearable
-          @keyup.enter="handleFilterChange"
-          @clear="handleFilterChange"
-          style="width: 120px"
-        >
-          <template #suffix>
-            <span class="filter-search-btn" @click="handleFilterChange" title="搜索">
-              <k-icon name="search"></k-icon>
-            </span>
-          </template>
-        </el-input>
+          <option value="">所有类型</option>
+          <option value="image">图片</option>
+          <option value="video">视频</option>
+          <option value="audio">音频</option>
+        </select>
+        <div class="search-input-wrapper">
+          <input
+            v-model="filter.uid"
+            class="pop-input small"
+            placeholder="用户 UID"
+            @keyup.enter="handleFilterChange"
+          />
+          <button class="search-btn" @click="handleFilterChange" title="搜索">🔍</button>
+        </div>
       </div>
       <div class="filter-right">
         <!-- 批量操作按钮 -->
         <Transition name="fade">
           <div class="batch-actions" v-if="selectedIds.size > 0">
             <span class="selected-count">已选 {{ selectedIds.size }} 项</span>
-            <button class="batch-btn danger" @click="openBatchDeleteDialog">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-              </svg>
-              <span>删除选中</span>
+            <button class="pop-btn small danger" @click="openBatchDeleteDialog">
+              🗑️ 删除选中
             </button>
-            <button class="batch-btn" @click="clearSelection">
-              <span>取消选择</span>
+            <button class="pop-btn small" @click="clearSelection">
+              取消选择
             </button>
           </div>
         </Transition>
@@ -184,110 +161,106 @@
     </div>
 
     <!-- 可滚动的内容区域 -->
-    <div class="ml-view-content" :class="{ 'no-scroll': viewMode === 'list' }" ref="contentRef">
+    <div class="view-content pop-scrollbar" ref="contentRef">
       <!-- 列表视图 -->
       <template v-if="viewMode === 'list'">
-        <el-table :data="tasks" style="width: 100%" height="100%" class="task-table" @row-click="handleRowClick">
-          <el-table-column width="50" align="center">
-            <template #header>
-              <el-checkbox
-                v-model="isAllSelected"
-                :indeterminate="isIndeterminate"
-                @change="toggleSelectAll"
-              />
-            </template>
-            <template #default="{ row }">
-              <el-checkbox
-                :model-value="selectedIds.has(row.id)"
-                @change="(val: boolean) => toggleSelect(row.id, val)"
-                @click.stop
-              />
-            </template>
-          </el-table-column>
-          <el-table-column prop="id" label="ID" width="80" align="center">
-            <template #default="{ row }">
-              <span class="mono-text">#{{ row.id }}</span>
-            </template>
-          </el-table-column>
-
-          <el-table-column label="状态" width="100" align="center">
-            <template #default="{ row }">
-              <StatusBadge :status="row.status" />
-            </template>
-          </el-table-column>
-
-          <el-table-column prop="channelId" label="渠道" width="100" align="center" />
-
-          <el-table-column label="提示词" min-width="300">
-            <template #default="{ row }">
-              <div class="prompt-cell" :title="getFinalPrompt(row)">{{ getFinalPrompt(row) }}</div>
-            </template>
-          </el-table-column>
-
-          <el-table-column label="输出" width="140" align="center">
-            <template #default="{ row }">
-              <div v-if="row.responseSnapshot && row.responseSnapshot.length" class="output-thumbnails">
-                <template v-for="(asset, idx) in row.responseSnapshot.slice(0, 3)" :key="idx">
-                  <img
-                    v-if="asset.kind === 'image' && asset.url"
-                    :src="asset.url"
-                    class="output-thumb"
-                    @error="handleImageError"
-                  />
-                  <div v-else-if="asset.kind === 'video'" class="output-thumb video-thumb">
-                    <k-icon name="play"></k-icon>
-                    <span v-if="asset.meta?.duration" class="media-duration">{{ formatMediaDuration(asset.meta.duration) }}</span>
+        <div class="list-table pop-card no-hover">
+          <table class="task-table">
+            <thead>
+              <tr>
+                <th style="width: 50px">
+                  <label class="checkbox-wrapper">
+                    <input
+                      type="checkbox"
+                      :checked="isAllSelected"
+                      :indeterminate="isIndeterminate"
+                      @change="toggleSelectAll(($event.target as HTMLInputElement).checked)"
+                    />
+                    <span class="checkbox-mark"></span>
+                  </label>
+                </th>
+                <th style="width: 80px">ID</th>
+                <th style="width: 100px">状态</th>
+                <th style="width: 100px">渠道</th>
+                <th>提示词</th>
+                <th style="width: 140px">输出</th>
+                <th style="width: 100px">耗时</th>
+                <th style="width: 180px">时间</th>
+                <th style="width: 60px"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in tasks" :key="row.id" @click="handleRowClick(row)">
+                <td @click.stop>
+                  <label class="checkbox-wrapper">
+                    <input
+                      type="checkbox"
+                      :checked="selectedIds.has(row.id)"
+                      @change="toggleSelect(row.id, ($event.target as HTMLInputElement).checked)"
+                    />
+                    <span class="checkbox-mark"></span>
+                  </label>
+                </td>
+                <td style="text-align: center">
+                  <span class="mono-text">#{{ row.id }}</span>
+                </td>
+                <td style="text-align: center">
+                  <StatusBadge :status="row.status" />
+                </td>
+                <td style="text-align: center">{{ row.channelId }}</td>
+                <td>
+                  <div class="prompt-cell" :title="getFinalPrompt(row)">{{ getFinalPrompt(row) }}</div>
+                </td>
+                <td style="text-align: center">
+                  <div v-if="row.responseSnapshot && row.responseSnapshot.length" class="output-thumbnails">
+                    <template v-for="(asset, idx) in row.responseSnapshot.slice(0, 3)" :key="idx">
+                      <img
+                        v-if="asset.kind === 'image' && asset.url"
+                        :src="asset.url"
+                        class="output-thumb"
+                        @error="handleImageError"
+                      />
+                      <div v-else-if="asset.kind === 'video'" class="output-thumb video-thumb">
+                        🎬
+                        <span v-if="asset.meta?.duration" class="media-duration">{{ formatMediaDuration(asset.meta.duration) }}</span>
+                      </div>
+                      <div v-else-if="asset.kind === 'audio'" class="output-thumb audio-thumb">
+                        🎵
+                        <span v-if="asset.meta?.duration" class="media-duration">{{ formatMediaDuration(asset.meta.duration) }}</span>
+                      </div>
+                      <div v-else-if="asset.kind === 'text'" class="output-thumb text-thumb">📝</div>
+                      <div v-else-if="asset.kind === 'file'" class="output-thumb file-thumb">📁</div>
+                    </template>
+                    <span v-if="row.responseSnapshot.length > 3" class="output-more">
+                      +{{ row.responseSnapshot.length - 3 }}
+                    </span>
                   </div>
-                  <div v-else-if="asset.kind === 'audio'" class="output-thumb audio-thumb">
-                    <k-icon name="volume-up"></k-icon>
-                    <span v-if="asset.meta?.duration" class="media-duration">{{ formatMediaDuration(asset.meta.duration) }}</span>
-                  </div>
-                  <div v-else-if="asset.kind === 'text'" class="output-thumb text-thumb">
-                    <k-icon name="file-text"></k-icon>
-                  </div>
-                  <div v-else-if="asset.kind === 'file'" class="output-thumb file-thumb">
-                    <k-icon name="file"></k-icon>
-                  </div>
-                </template>
-                <span v-if="row.responseSnapshot.length > 3" class="output-more">
-                  +{{ row.responseSnapshot.length - 3 }}
-                </span>
-              </div>
-              <span v-else class="text-muted">-</span>
-            </template>
-          </el-table-column>
-
-          <el-table-column label="耗时" width="100" align="right">
-            <template #default="{ row }">
-              <span v-if="row.duration">{{ formatDuration(row.duration) }}</span>
-              <span v-else>-</span>
-            </template>
-          </el-table-column>
-
-          <el-table-column label="时间" width="180" align="center">
-            <template #default="{ row }">
-              <span class="time-text">{{ formatDate(row.startTime) }}</span>
-            </template>
-          </el-table-column>
-
-          <el-table-column width="60" align="center" fixed="right">
-            <template #default="{ row }">
-              <span
-                class="delete-btn"
-                title="删除"
-                @click.stop="confirmDeleteTask(row)"
-              >
-                <k-icon name="delete"></k-icon>
-              </span>
-            </template>
-          </el-table-column>
-        </el-table>
+                  <span v-else class="text-muted">-</span>
+                </td>
+                <td style="text-align: right">
+                  <span v-if="row.duration">{{ formatDuration(row.duration) }}</span>
+                  <span v-else>-</span>
+                </td>
+                <td style="text-align: center">
+                  <span class="time-text">{{ formatDate(row.startTime) }}</span>
+                </td>
+                <td style="text-align: center">
+                  <span
+                    class="action-btn delete"
+                    title="删除"
+                    @click.stop="confirmDeleteTask(row)"
+                  >🗑️</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </template>
 
       <!-- 画廊视图 (瀑布流) -->
       <template v-else-if="viewMode === 'gallery'">
         <div v-if="galleryItems.length === 0" class="empty-gallery">
-          <k-icon name="image" class="empty-icon"></k-icon>
+          <span class="empty-icon">🖼️</span>
           <p>暂无成功生成的图片</p>
         </div>
         <MasonryGrid
@@ -298,7 +271,7 @@
           :gap="16"
         >
           <template #default="{ item }">
-            <div class="gallery-item" @click="openGalleryDetail(item)">
+            <div class="gallery-item pop-card" @click="openGalleryDetail(item)">
               <div class="gallery-image-wrapper">
                 <img
                   v-if="item.kind === 'image'"
@@ -325,7 +298,7 @@
                   />
                 </div>
                 <div v-if="item.kind !== 'audio'" class="gallery-overlay">
-                  <k-icon name="zoom-in" class="zoom-icon"></k-icon>
+                  <span class="zoom-icon">🔍</span>
                 </div>
               </div>
               <!-- 画廊模式下隐藏数据展示，纯图片浏览 -->
@@ -336,88 +309,87 @@
     </div>
 
     <!-- 分页 (固定在底部) -->
-    <div class="pagination-bar">
+    <div class="pagination-bar pop-card no-hover">
       <div class="page-size-select">
         <span class="page-size-label">每页</span>
-        <el-select v-model="pageSize" size="small" @change="handlePageSizeChange" style="width: 70px">
-          <el-option :value="20" label="20" />
-          <el-option :value="50" label="50" />
-          <el-option :value="100" label="100" />
-        </el-select>
+        <select v-model="pageSize" class="pop-select small" @change="handlePageSizeChange">
+          <option :value="20">20</option>
+          <option :value="50">50</option>
+          <option :value="100">100</option>
+        </select>
         <span class="page-size-label">条</span>
       </div>
       <div class="page-nav">
-        <button class="page-btn" :disabled="page <= 1" @click="goToPage(page - 1)">
-          <k-icon name="chevron-left"></k-icon>
-        </button>
+        <button class="pop-btn small" :disabled="page <= 1" @click="goToPage(page - 1)">⬅️</button>
         <span class="page-info">{{ page }} / {{ totalPages }}</span>
-        <button class="page-btn" :disabled="page >= totalPages" @click="goToPage(page + 1)">
-          <k-icon name="chevron-right"></k-icon>
-        </button>
+        <button class="pop-btn small" :disabled="page >= totalPages" @click="goToPage(page + 1)">➡️</button>
       </div>
       <div class="page-total">共 {{ total }} 条</div>
     </div>
 
     <!-- 任务详情对话框 -->
-    <el-dialog
-      v-model="detailVisible"
-      title="任务详情"
-      width="800px"
-    >
-      <div v-if="currentTask" class="task-detail">
-        <div class="detail-section">
-          <h3>基本信息</h3>
-          <div class="detail-grid">
-            <div class="detail-item"><span class="label">ID:</span> {{ currentTask.id }}</div>
-            <div class="detail-item"><span class="label">状态:</span> <StatusBadge :status="currentTask.status" /></div>
-            <div class="detail-item"><span class="label">渠道 ID:</span> {{ currentTask.channelId }}</div>
-            <div class="detail-item"><span class="label">用户 UID:</span> {{ currentTask.uid ?? 'N/A' }}</div>
-            <div class="detail-item"><span class="label">创建时间:</span> {{ formatDate(currentTask.startTime) }}</div>
-            <div class="detail-item"><span class="label">耗时:</span> {{ formatDuration(currentTask.duration || 0) }}</div>
+    <Teleport to="body">
+      <div v-if="detailVisible" class="modal-overlay" @click.self="detailVisible = false">
+        <div class="modal-dialog large pop-card no-hover">
+          <div class="modal-header">
+            <h3>任务详情</h3>
+            <button class="modal-close" @click="detailVisible = false">✕</button>
           </div>
-        </div>
+          <div class="modal-body pop-scrollbar" v-if="currentTask">
+            <div class="detail-section">
+              <h4>基本信息</h4>
+              <div class="detail-grid">
+                <div class="detail-item"><span class="label">ID:</span> {{ currentTask.id }}</div>
+                <div class="detail-item"><span class="label">状态:</span> <StatusBadge :status="currentTask.status" /></div>
+                <div class="detail-item"><span class="label">渠道 ID:</span> {{ currentTask.channelId }}</div>
+                <div class="detail-item"><span class="label">用户 UID:</span> {{ currentTask.uid ?? 'N/A' }}</div>
+                <div class="detail-item"><span class="label">创建时间:</span> {{ formatDate(currentTask.startTime) }}</div>
+                <div class="detail-item"><span class="label">耗时:</span> {{ formatDuration(currentTask.duration || 0) }}</div>
+              </div>
+            </div>
 
-        <div class="detail-section">
-          <h3>Prompt</h3>
-          <div class="code-block">{{ getFinalPrompt(currentTask) }}</div>
-        </div>
+            <div class="detail-section">
+              <h4>Prompt</h4>
+              <div class="code-block">{{ getFinalPrompt(currentTask) }}</div>
+            </div>
 
-        <div class="detail-section" v-if="currentTask.responseSnapshot && currentTask.responseSnapshot.length > 0">
-          <h3>生成结果 ({{ currentTask.responseSnapshot.length }} 个资产)</h3>
-          <div class="output-gallery">
-            <div
-              v-for="(asset, idx) in currentTask.responseSnapshot"
-              :key="idx"
-              class="output-item"
-            >
-              <template v-if="asset.kind === 'image' && asset.url">
-                <img :src="asset.url" class="output-image" />
-              </template>
-              <template v-else-if="asset.kind === 'video' && asset.url">
-                <video :src="asset.url" class="output-image" controls />
-              </template>
-              <template v-else-if="asset.kind === 'audio' && asset.url">
-                <audio :src="asset.url" controls style="width: 100%;" />
-              </template>
-              <template v-else-if="asset.kind === 'text' && asset.content">
-                <div class="text-asset">{{ asset.content }}</div>
-              </template>
-              <template v-else-if="asset.url">
-                <a :href="asset.url" target="_blank" class="file-link">
-                  <k-icon name="file"></k-icon>
-                  {{ asset.meta?.filename || asset.url }}
-                </a>
-              </template>
+            <div class="detail-section" v-if="currentTask.responseSnapshot && currentTask.responseSnapshot.length > 0">
+              <h4>生成结果 ({{ currentTask.responseSnapshot.length }} 个资产)</h4>
+              <div class="output-gallery">
+                <div
+                  v-for="(asset, idx) in currentTask.responseSnapshot"
+                  :key="idx"
+                  class="output-item"
+                >
+                  <template v-if="asset.kind === 'image' && asset.url">
+                    <img :src="asset.url" class="output-image" />
+                  </template>
+                  <template v-else-if="asset.kind === 'video' && asset.url">
+                    <video :src="asset.url" class="output-image" controls />
+                  </template>
+                  <template v-else-if="asset.kind === 'audio' && asset.url">
+                    <audio :src="asset.url" controls style="width: 100%;" />
+                  </template>
+                  <template v-else-if="asset.kind === 'text' && asset.content">
+                    <div class="text-asset">{{ asset.content }}</div>
+                  </template>
+                  <template v-else-if="asset.url">
+                    <a :href="asset.url" target="_blank" class="file-link">
+                      📁 {{ asset.meta?.filename || asset.url }}
+                    </a>
+                  </template>
+                </div>
+              </div>
+            </div>
+
+            <div class="detail-section" v-if="currentTask.middlewareLogs?.request?.error">
+              <h4>错误信息</h4>
+              <div class="code-block error">{{ currentTask.middlewareLogs.request.error }}</div>
             </div>
           </div>
         </div>
-
-        <div class="detail-section" v-if="currentTask.middlewareLogs?.request?.error">
-          <h3>错误信息</h3>
-          <div class="code-block error">{{ currentTask.middlewareLogs.request.error }}</div>
-        </div>
       </div>
-    </el-dialog>
+    </Teleport>
 
     <!-- 图片预览弹窗 -->
     <ImageLightbox
@@ -427,104 +399,101 @@
     />
 
     <!-- 清理对话框 -->
-    <el-dialog
-      v-model="cleanupVisible"
-      title="清理旧任务"
-      width="400px"
-    >
-      <div class="cleanup-form">
-        <p>清理多少天前的任务？</p>
-        <el-input-number v-model="cleanupDays" :min="1" :max="365"></el-input-number>
+    <Teleport to="body">
+      <div v-if="cleanupVisible" class="modal-overlay" @click.self="cleanupVisible = false">
+        <div class="modal-dialog small pop-card no-hover">
+          <div class="modal-header">
+            <h3>清理旧任务</h3>
+            <button class="modal-close" @click="cleanupVisible = false">✕</button>
+          </div>
+          <div class="modal-body">
+            <div class="cleanup-form">
+              <p>清理多少天前的任务？</p>
+              <input type="number" v-model.number="cleanupDays" class="pop-input" min="1" max="365" style="width: 120px" />
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="pop-btn" @click="cleanupVisible = false">取消</button>
+            <button class="pop-btn danger" @click="confirmCleanup">确认清理</button>
+          </div>
+        </div>
       </div>
-      <template #footer>
-        <span class="dialog-footer">
-          <k-button @click="cleanupVisible = false">取消</k-button>
-          <k-button type="error" @click="confirmCleanup">确认清理</k-button>
-        </span>
-      </template>
-    </el-dialog>
+    </Teleport>
 
     <!-- 删除确认对话框 -->
-    <el-dialog
-      v-model="deleteConfirmVisible"
-      title="删除确认"
-      width="420px"
-    >
-      <div class="delete-confirm-content">
-        <div class="delete-icon-wrapper">
-          <svg viewBox="0 0 24 24" fill="currentColor" class="delete-icon">
-            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-          </svg>
-        </div>
-        <div class="delete-info">
-          <div class="delete-title">确定删除此任务？</div>
-          <div class="delete-task-id">#{{ taskToDelete?.id }}</div>
-          <div class="delete-prompt" v-if="taskToDelete">{{ getDeletePromptPreview(taskToDelete) }}</div>
-        </div>
-        <div class="delete-warning">
-          <svg viewBox="0 0 24 24" fill="currentColor" class="warning-icon">
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
-          </svg>
-          <span>此操作不可恢复</span>
+    <Teleport to="body">
+      <div v-if="deleteConfirmVisible" class="modal-overlay" @click.self="deleteConfirmVisible = false">
+        <div class="modal-dialog small pop-card no-hover">
+          <div class="modal-header">
+            <h3>删除确认</h3>
+            <button class="modal-close" @click="deleteConfirmVisible = false">✕</button>
+          </div>
+          <div class="modal-body">
+            <div class="delete-confirm-content">
+              <div class="delete-icon-wrapper">🗑️</div>
+              <div class="delete-info">
+                <div class="delete-title">确定删除此任务？</div>
+                <div class="delete-task-id">#{{ taskToDelete?.id }}</div>
+                <div class="delete-prompt" v-if="taskToDelete">{{ getDeletePromptPreview(taskToDelete) }}</div>
+              </div>
+              <div class="delete-warning">
+                ⚠️ 此操作不可恢复
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="pop-btn" @click="deleteConfirmVisible = false">取消</button>
+            <button class="pop-btn danger" @click="doDeleteTask">确认删除</button>
+          </div>
         </div>
       </div>
-      <template #footer>
-        <span class="dialog-footer">
-          <k-button @click="deleteConfirmVisible = false">取消</k-button>
-          <k-button type="error" @click="doDeleteTask">确认删除</k-button>
-        </span>
-      </template>
-    </el-dialog>
+    </Teleport>
 
     <!-- 批量删除确认对话框 -->
-    <el-dialog
-      v-model="batchDeleteVisible"
-      title="批量删除确认"
-      width="460px"
-    >
-      <div class="delete-confirm-content">
-        <div class="delete-icon-wrapper batch">
-          <svg viewBox="0 0 24 24" fill="currentColor" class="delete-icon">
-            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-          </svg>
-        </div>
-        <div class="delete-info">
-          <div class="delete-title">确定删除选中的任务？</div>
-          <div class="batch-count">
-            <span class="count-number">{{ selectedIds.size }}</span>
-            <span class="count-label">条任务将被删除</span>
+    <Teleport to="body">
+      <div v-if="batchDeleteVisible" class="modal-overlay" @click.self="batchDeleteVisible = false">
+        <div class="modal-dialog small pop-card no-hover">
+          <div class="modal-header">
+            <h3>批量删除确认</h3>
+            <button class="modal-close" @click="batchDeleteVisible = false">✕</button>
           </div>
-          <div class="batch-ids">
-            <span v-for="id in Array.from(selectedIds).slice(0, 10)" :key="id" class="batch-id-tag">
-              #{{ id }}
-            </span>
-            <span v-if="selectedIds.size > 10" class="batch-more">
-              +{{ selectedIds.size - 10 }} 更多
-            </span>
+          <div class="modal-body">
+            <div class="delete-confirm-content">
+              <div class="delete-icon-wrapper batch">🗑️</div>
+              <div class="delete-info">
+                <div class="delete-title">确定删除选中的任务？</div>
+                <div class="batch-count">
+                  <span class="count-number">{{ selectedIds.size }}</span>
+                  <span class="count-label">条任务将被删除</span>
+                </div>
+                <div class="batch-ids">
+                  <span v-for="id in Array.from(selectedIds).slice(0, 10)" :key="id" class="batch-id-tag">
+                    #{{ id }}
+                  </span>
+                  <span v-if="selectedIds.size > 10" class="batch-more">
+                    +{{ selectedIds.size - 10 }} 更多
+                  </span>
+                </div>
+              </div>
+              <div class="delete-warning">
+                ⚠️ 此操作不可恢复，请谨慎操作
+              </div>
+            </div>
           </div>
-        </div>
-        <div class="delete-warning">
-          <svg viewBox="0 0 24 24" fill="currentColor" class="warning-icon">
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
-          </svg>
-          <span>此操作不可恢复，请谨慎操作</span>
+          <div class="modal-footer">
+            <button class="pop-btn" @click="batchDeleteVisible = false">取消</button>
+            <button class="pop-btn danger" @click="doBatchDelete">
+              确认删除 {{ selectedIds.size }} 条
+            </button>
+          </div>
         </div>
       </div>
-      <template #footer>
-        <span class="dialog-footer">
-          <k-button @click="batchDeleteVisible = false">取消</k-button>
-          <k-button type="error" @click="doBatchDelete">
-            确认删除 {{ selectedIds.size }} 条
-          </k-button>
-        </span>
-      </template>
-    </el-dialog>
+    </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
-import { message } from '@koishijs/client'
 import { TaskData, ChannelConfig } from '../types'
 import { taskApi, channelApi } from '../api'
 import StatusBadge from './StatusBadge.vue'
@@ -747,7 +716,7 @@ const fetchData = async () => {
     stats.value = statsRes
   } catch (e) {
     console.error('Failed to fetch tasks:', e)
-    message.error('加载数据失败')
+    alert('加载数据失败')
   } finally {
     loading.value = false
   }
@@ -800,11 +769,11 @@ const openCleanupDialog = () => {
 const confirmCleanup = async () => {
   try {
     const res = await taskApi.cleanup(cleanupDays.value)
-    message.success(`成功清理 ${res.deleted} 条任务`)
+    alert(`成功清理 ${res.deleted} 条任务`)
     cleanupVisible.value = false
     fetchData()
   } catch (e) {
-    message.error('清理失败')
+    alert('清理失败')
   }
 }
 
@@ -819,12 +788,12 @@ const doDeleteTask = async () => {
   if (!taskToDelete.value) return
   try {
     await taskApi.delete(taskToDelete.value.id)
-    message.success('删除成功')
+    alert('删除成功')
     deleteConfirmVisible.value = false
     taskToDelete.value = null
     fetchData()
   } catch (e) {
-    message.error('删除失败')
+    alert('删除失败')
   }
 }
 
@@ -875,9 +844,9 @@ const doBatchDelete = async () => {
   selectedIds.value = new Set()
 
   if (failCount === 0) {
-    message.success(`成功删除 ${successCount} 条任务`)
+    alert(`成功删除 ${successCount} 条任务`)
   } else {
-    message.warning(`删除完成：${successCount} 成功，${failCount} 失败`)
+    alert(`删除完成：${successCount} 成功，${failCount} 失败`)
   }
 
   fetchData()
@@ -921,9 +890,9 @@ const handleImageError = (e: Event) => {
 const copyToClipboard = async (text: string) => {
   try {
     await navigator.clipboard.writeText(text)
-    message.success('已复制到剪贴板')
+    alert('已复制到剪贴板')
   } catch {
-    message.error('复制失败')
+    alert('复制失败')
   }
 }
 
@@ -942,290 +911,335 @@ onMounted(() => {
 })
 </script>
 
-<style scoped>
-@import '../styles/shared.css';
+<style lang="scss">
+@use '../styles/theme.scss';
+</style>
 
-/* ========== 列表视图滚动控制 ========== */
-/* 列表视图时，禁用外层滚动，让 el-table 自己处理滚动（固定表头） */
-.ml-view-content.no-scroll {
-  overflow: hidden;
+<style scoped lang="scss">
+/* ============ 视图容器 ============ */
+.tasks-view {
+  height: 100%;
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  gap: 8px; /* 减小间距 */
+  overflow: hidden; /* 视图本身不滚动 */
 }
 
-/* ========== 任务视图特有样式 ========== */
-
-/* 工具栏 */
+/* ============ 工具栏 ============ */
 .tasks-toolbar {
+  flex-shrink: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
-  flex-wrap: wrap;
-  gap: 0.75rem;
+  padding: 8px 12px; /* 减小内边距 */
+  gap: 8px;
 }
 
 .toolbar-left {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 12px;
 }
 
 .toolbar-right {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 8px;
 }
 
 /* 按钮组 */
 .btn-group {
   display: flex;
-  background-color: var(--k-color-bg-2);
-  border: 1px solid var(--k-color-border);
-  border-radius: 6px;
-  padding: 2px;
+  background: var(--ml-bg-alt);
+  border: var(--ml-border);
+  border-radius: var(--ml-radius);
+  padding: 4px;
+  gap: 4px;
 }
 
 .group-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 5px 12px;
+  padding: 6px 12px;
   border: none;
   background: transparent;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-muted);
   cursor: pointer;
-  border-radius: 4px;
-  transition: all 0.15s ease;
+  border-radius: calc(var(--ml-radius) - 4px);
   font-size: 13px;
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.group-btn.icon-only {
-  padding: 5px 8px;
+  font-weight: 600;
+  transition: all 0.15s;
 }
 
 .group-btn:hover {
-  color: var(--k-color-text);
+  color: var(--ml-text);
+  background: var(--ml-bg);
 }
 
 .group-btn.active {
-  color: var(--k-color-active);
-  background-color: var(--k-card-bg);
-  box-shadow: var(--k-shadow-1, 0 1px 2px var(--k-color-shadow, rgba(0, 0, 0, 0.08)));
+  color: var(--ml-text);
+  background: var(--ml-primary);
+  box-shadow: var(--ml-shadow-sm);
 }
 
-/* 工具栏按钮 */
-.toolbar-btn {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 12px;
-  border: 1px solid var(--k-color-border);
-  background: var(--k-card-bg);
-  color: var(--k-color-text-description);
-  cursor: pointer;
-  border-radius: 6px;
-  transition: all 0.15s ease;
-  font-size: 13px;
-}
-
-.toolbar-btn:hover {
-  color: var(--k-color-text);
-  border-color: var(--k-color-active);
-}
-
-.toolbar-btn.danger:hover {
-  color: var(--k-color-error);
-  border-color: var(--k-color-error);
-}
-
-/* Stats Grid */
+/* ============ Stats Grid ============ */
 .stats-grid {
   flex-shrink: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 1rem;
-  margin-bottom: 2rem;
+  grid-template-columns: repeat(5, 1fr); /* 固定5列 */
+  gap: 8px;
 }
 
 .stat-card {
-  background: var(--k-card-bg);
-  border: 1px solid transparent;
-  border-radius: 16px;
-  padding: 1.5rem;
   display: flex;
-  flex-direction: row;
   align-items: center;
-  justify-content: space-between;
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-  position: relative;
-  overflow: hidden;
-  box-shadow: var(--k-shadow-1, 0 2px 8px var(--k-color-shadow, rgba(0, 0, 0, 0.04)));
-}
-
-.stat-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--k-shadow-2, 0 8px 24px var(--k-color-shadow, rgba(0, 0, 0, 0.08)));
+  gap: 8px;
+  padding: 8px 12px; /* 减小内边距 */
 }
 
 .stat-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
+  width: 32px; /* 减小图标尺寸 */
+  height: 32px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.5rem;
+  font-size: 16px; /* 减小字体 */
   flex-shrink: 0;
-  background-color: var(--k-color-bg-2);
-  color: var(--k-color-text-description);
-  transition: all 0.3s ease;
+  border: 2px solid var(--ml-border-color);
 }
 
-.stat-card:hover .stat-icon {
-  transform: scale(1.1);
-}
-
-.stat-icon.total { background-color: var(--k-color-active-bg, var(--k-color-bg-2)); color: var(--k-color-active); }
-.stat-icon.success { background-color: var(--k-color-success-light, rgba(103, 194, 58, 0.1)); color: var(--k-color-success); }
-.stat-icon.failed { background-color: var(--k-color-error-light, rgba(245, 108, 108, 0.1)); color: var(--k-color-error); }
-.stat-icon.processing { background-color: var(--k-color-warning-light, rgba(230, 162, 60, 0.1)); color: var(--k-color-warning); }
-.stat-icon.rate { background-color: var(--k-color-active-bg, var(--k-color-bg-2)); color: var(--k-color-active); }
+.stat-icon.total { background: var(--ml-primary-light); }
+.stat-icon.success { background: rgba(76, 175, 80, 0.15); }
+.stat-icon.failed { background: rgba(244, 67, 54, 0.15); }
+.stat-icon.processing { background: rgba(255, 152, 0, 0.15); }
+.stat-icon.rate { background: var(--ml-info-light); }
 
 .stat-content {
   display: flex;
-  flex-direction: column-reverse;
-  align-items: flex-end;
-  margin-left: auto;
-  text-align: right;
+  flex-direction: column;
 }
 
+.stat-value {
+  font-size: 18px; /* 减小数值字体 */
+  font-weight: 800;
+  color: var(--ml-text);
+  line-height: 1;
+}
+
+.stat-value.success { color: var(--ml-success); }
+.stat-value.failed { color: var(--ml-danger); }
+.stat-value.pending { color: var(--ml-warning); }
+
 .stat-label {
-  font-size: 0.85rem;
-  color: var(--k-color-text-description);
-  margin-top: 0.5rem;
-  font-weight: 500;
+  font-size: 10px; /* 减小标签字体 */
+  font-weight: 600;
+  color: var(--ml-text-muted);
+  margin-top: 2px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
-.stat-value {
-  font-size: 2rem;
-  font-weight: 700;
-  color: var(--k-color-text);
-  line-height: 1;
-  letter-spacing: -0.03em;
-}
-
-.stat-value.success { color: var(--k-color-success); }
-.stat-value.failed { color: var(--k-color-error); }
-.stat-value.pending { color: var(--k-color-warning); }
-
-/* Filter Bar */
+/* ============ Filter Bar ============ */
 .filter-bar {
   flex-shrink: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
-  background-color: var(--k-card-bg);
-  padding: 1rem;
-  border-radius: 12px;
-  border: 1px solid var(--k-color-border);
+  padding: 8px 12px; /* 减小内边距 */
+  gap: 8px;
 }
 
 .filter-group {
   display: flex;
-  gap: 1rem;
+  align-items: center;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
-.pagination-info {
-  color: var(--k-color-text-description);
-  font-size: 0.9rem;
+.filter-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
-/* 筛选搜索按钮 */
-.filter-search-btn {
-  display: inline-flex;
+.pagination-info {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ml-text-muted);
+}
+
+.batch-select-control {
+  display: flex;
+  align-items: center;
+  padding-right: 12px;
+  border-right: 2px solid var(--ml-border-color);
+  margin-right: 4px;
+}
+
+.batch-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.selected-count {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ml-primary-dark);
+}
+
+.search-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.search-btn {
+  display: flex;
   align-items: center;
   justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
   cursor: pointer;
-  color: var(--k-color-text-description);
-  transition: color 0.15s ease;
-  padding: 2px;
+  font-size: 16px;
+  border-radius: 8px;
+  transition: all 0.15s;
 }
 
-.filter-search-btn:hover {
-  color: var(--k-color-active);
+.search-btn:hover {
+  background: var(--ml-primary-light);
 }
 
-/* Task Table */
-.task-table {
-  border: 1px solid var(--k-color-border);
-  border-radius: 12px;
-  cursor: pointer;
+/* ============ 内容区域 ============ */
+.view-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 4px;
+  /* 隐藏式滚动条 */
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.view-content:hover {
+  scrollbar-color: var(--ml-border-color) transparent;
+}
+
+.view-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.view-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.view-content::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 3px;
+}
+
+.view-content:hover::-webkit-scrollbar-thumb {
+  background-color: var(--ml-border-color);
+}
+
+/* ============ 列表表格 ============ */
+.list-table {
   overflow: hidden;
-  --el-table-header-bg-color: var(--k-color-bg-1);
-  --el-table-row-hover-bg-color: var(--k-color-bg-2);
-  --el-table-border-color: var(--k-color-border);
 }
 
-.task-table :deep(.el-table__row) {
-  transition: background-color 0.15s ease;
+.task-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
 }
 
-.task-table :deep(th.el-table__cell) {
-  font-weight: 600;
-  color: var(--k-color-text-description);
+.task-table thead {
+  background: var(--ml-bg-alt);
+}
+
+.task-table th {
+  padding: 12px 16px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ml-text-muted);
+  text-align: left;
   text-transform: uppercase;
-  font-size: 0.75rem;
   letter-spacing: 0.05em;
+  border-bottom: var(--ml-border);
+}
+
+.task-table tbody tr {
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.task-table tbody tr:hover {
+  background: var(--ml-primary-light);
+}
+
+.task-table td {
+  padding: 12px 16px;
+  border-bottom: 2px solid var(--ml-border-color);
+  vertical-align: middle;
+}
+
+.task-table tbody tr:last-child td {
+  border-bottom: none;
 }
 
 .mono-text {
-  font-family: monospace;
-  color: var(--k-color-text-description);
-}
-
-/* 删除按钮 */
-.delete-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  color: var(--k-color-text-description);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.delete-btn:hover {
-  color: var(--k-color-error);
-  background-color: var(--k-color-error-light, rgba(245, 108, 108, 0.1));
+  font-family: 'Consolas', monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ml-text-muted);
 }
 
 .prompt-cell {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: var(--k-color-text);
+  color: var(--ml-text);
+  font-size: 13px;
 }
 
 .time-text {
-  font-size: 0.85rem;
-  color: var(--k-color-text-description);
+  font-size: 12px;
+  color: var(--ml-text-muted);
   white-space: nowrap;
 }
 
 .text-muted {
-  color: var(--k-color-text-description);
+  color: var(--ml-text-muted);
+  opacity: 0.5;
 }
 
-/* 输出缩略图 */
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.15s;
+}
+
+.action-btn:hover {
+  transform: scale(1.15);
+}
+
+.action-btn.delete:hover {
+  background: var(--ml-danger);
+}
+
+/* ============ 输出缩略图 ============ */
 .output-thumbnails {
   display: flex;
   align-items: center;
@@ -1236,84 +1250,69 @@ onMounted(() => {
 .output-thumb {
   width: 32px;
   height: 32px;
-  border-radius: 4px;
+  border-radius: 6px;
   object-fit: cover;
-  border: 1px solid var(--k-color-border);
-  background: var(--k-color-bg-2);
+  border: 2px solid var(--ml-border-color);
+  background: var(--ml-bg-alt);
 }
 
-.video-thumb {
+.video-thumb,
+.audio-thumb,
+.text-thumb,
+.file-thumb {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: var(--k-color-text-description);
-  font-size: 14px;
-  position: relative;
+  font-size: 12px;
 }
 
 .audio-thumb {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
   background: linear-gradient(135deg, rgba(103, 194, 58, 0.15), rgba(64, 158, 255, 0.15));
-  color: var(--k-color-success, #67c23a);
-  font-size: 14px;
-  position: relative;
 }
 
 .media-duration {
   font-size: 8px;
-  font-weight: 500;
+  font-weight: 600;
   margin-top: 2px;
-  opacity: 0.9;
-}
-
-.text-thumb {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(144, 147, 153, 0.1);
-  color: var(--k-color-text-description);
-  font-size: 14px;
-}
-
-.file-thumb {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(64, 158, 255, 0.1);
-  color: var(--k-color-active, #409eff);
-  font-size: 14px;
 }
 
 .output-more {
-  font-size: 0.75rem;
-  color: var(--k-color-text-description);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ml-text-muted);
   margin-left: 2px;
 }
 
-/* Gallery Item */
+/* ============ 画廊视图 ============ */
+.empty-gallery {
+  text-align: center;
+  padding: 64px 32px;
+  color: var(--ml-text-muted);
+}
+
+.empty-icon {
+  font-size: 48px;
+  display: block;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
 .gallery-item {
-  background: var(--k-card-bg);
-  border: 1px solid var(--k-color-border);
-  border-radius: 8px;
-  overflow: hidden;
   cursor: pointer;
-  transition: all 0.2s ease;
+  overflow: hidden;
+  transition: all 0.2s;
 }
 
 .gallery-item:hover {
-  border-color: var(--k-color-active);
-  box-shadow: var(--k-shadow-2, 0 4px 12px var(--k-color-shadow, rgba(0, 0, 0, 0.1)));
+  transform: translateY(-4px);
 }
 
 .gallery-image-wrapper {
   position: relative;
   width: 100%;
   overflow: hidden;
-  background: var(--k-color-bg-2);
+  background: var(--ml-bg-alt);
 }
 
 .gallery-image,
@@ -1325,10 +1324,9 @@ onMounted(() => {
 
 .gallery-item:hover .gallery-image,
 .gallery-item:hover .gallery-video {
-  transform: scale(1.03);
+  transform: scale(1.05);
 }
 
-/* Gallery Audio Card */
 .gallery-audio {
   width: 100%;
 }
@@ -1336,13 +1334,12 @@ onMounted(() => {
 .gallery-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, var(--k-color-overlay, rgba(0, 0, 0, 0.8)) 0%, transparent 50%);
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  padding: 1.5rem;
+  align-items: center;
+  justify-content: center;
   opacity: 0;
-  transition: opacity 0.3s;
+  transition: opacity 0.2s;
 }
 
 .gallery-item:hover .gallery-overlay {
@@ -1350,10 +1347,7 @@ onMounted(() => {
 }
 
 .zoom-icon {
-  font-size: 2rem;
-  color: var(--k-color-text-inverse, #fff);
-  margin-bottom: auto;
-  align-self: center;
+  font-size: 32px;
   opacity: 0;
   transform: scale(0.8);
   transition: all 0.3s;
@@ -1364,418 +1358,383 @@ onMounted(() => {
   transform: scale(1);
 }
 
-.empty-gallery {
-  text-align: center;
-  padding: 4rem 2rem;
-  color: var(--k-color-text-description);
-}
-
-.empty-icon {
-  font-size: 3rem;
-  margin-bottom: 1rem;
-  opacity: 0.5;
-}
-
-/* Pagination Bar */
+/* ============ 分页栏 ============ */
 .pagination-bar {
   flex-shrink: 0;
-  margin-top: 1rem;
-  padding: 0.75rem 1rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 2rem;
-  border-top: 1px solid var(--k-color-border);
-  background-color: var(--k-card-bg);
-  border-radius: 0 0 8px 8px;
+  gap: 24px;
+  padding: 12px 16px;
 }
 
 .page-size-select {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 8px;
 }
 
 .page-size-label {
-  font-size: 0.85rem;
-  color: var(--k-color-text-description);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ml-text-muted);
 }
 
 .page-nav {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-}
-
-.page-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: 1px solid var(--k-color-border);
-  border-radius: 6px;
-  background-color: var(--k-color-bg-1);
-  color: var(--k-color-text);
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.page-btn:hover:not(:disabled) {
-  border-color: var(--k-color-active);
-  color: var(--k-color-active);
-  background-color: var(--k-color-bg-2);
-}
-
-.page-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
+  gap: 12px;
 }
 
 .page-info {
-  font-size: 0.9rem;
-  color: var(--k-color-text);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ml-text);
   min-width: 60px;
   text-align: center;
 }
 
 .page-total {
-  font-size: 0.85rem;
-  color: var(--k-color-text-description);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ml-text-muted);
 }
 
-/* Detail Modal Styles */
-.task-detail {
+/* ============ Checkbox ============ */
+.checkbox-wrapper {
+  position: relative;
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+}
+
+.checkbox-wrapper input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.checkbox-mark {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 20px;
+  height: 20px;
+  background: var(--ml-bg);
+  border: 2px solid var(--ml-border-color);
+  border-radius: 6px;
+  transition: all 0.15s;
+}
+
+.checkbox-wrapper input:checked + .checkbox-mark {
+  background: var(--ml-primary);
+  border-color: var(--ml-primary-dark);
+}
+
+.checkbox-mark::after {
+  content: "";
+  position: absolute;
+  display: none;
+  left: 6px;
+  top: 2px;
+  width: 5px;
+  height: 10px;
+  border: solid var(--ml-text);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.checkbox-wrapper input:checked + .checkbox-mark::after {
+  display: block;
+}
+
+/* ============ 模态框 ============ */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 24px;
+}
+
+.modal-dialog {
+  width: 100%;
+  max-width: 460px;
+  max-height: 90vh;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  animation: modal-pop 0.2s ease-out;
 }
 
-.detail-section h3 {
-  font-size: 1.1rem;
-  margin-bottom: 1rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid var(--k-color-border);
-  color: var(--k-color-text);
+.modal-dialog.small {
+  max-width: 420px;
+}
+
+.modal-dialog.large {
+  max-width: 800px;
+}
+
+@keyframes modal-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.modal-header {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: var(--ml-border);
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--ml-text);
+}
+
+.modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: var(--ml-text-muted);
+  cursor: pointer;
+  font-size: 18px;
+  border-radius: 8px;
+  transition: all 0.15s;
+}
+
+.modal-close:hover {
+  background: var(--ml-danger);
+  color: white;
+}
+
+.modal-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 20px;
+  /* 隐藏式滚动条 */
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.modal-body:hover {
+  scrollbar-color: var(--ml-border-color) transparent;
+}
+
+.modal-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.modal-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.modal-body::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 3px;
+}
+
+.modal-body:hover::-webkit-scrollbar-thumb {
+  background-color: var(--ml-border-color);
+}
+
+.modal-footer {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: var(--ml-border);
+}
+
+/* ============ 详情区域 ============ */
+.detail-section {
+  margin-bottom: 24px;
+}
+
+.detail-section h4 {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ml-text);
+  margin: 0 0 12px 0;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--ml-border-color);
 }
 
 .detail-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 1rem;
-  background-color: var(--k-color-bg-2);
-  padding: 1rem;
-  border-radius: 8px;
+  gap: 12px;
+  background: var(--ml-bg-alt);
+  padding: 16px;
+  border-radius: var(--ml-radius);
+  border: 2px solid var(--ml-border-color);
 }
 
 .detail-item {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 8px;
+  font-size: 13px;
 }
 
 .label {
-  font-weight: 600;
-  color: var(--k-color-text-description);
-  flex-shrink: 0;
+  font-weight: 700;
+  color: var(--ml-text-muted);
 }
 
 .code-block {
-  background-color: var(--k-color-bg-2);
-  padding: 1rem;
-  border-radius: 6px;
-  font-family: 'Fira Code', monospace;
-  font-size: 0.9rem;
+  background: var(--ml-bg-alt);
+  padding: 16px;
+  border-radius: var(--ml-radius);
+  font-family: 'Consolas', monospace;
+  font-size: 13px;
   white-space: pre-wrap;
   word-break: break-all;
-  max-height: 300px;
+  max-height: 200px;
   overflow-y: auto;
-  border: 1px solid var(--k-color-border);
+  border: 2px solid var(--ml-border-color);
+  color: var(--ml-text);
+  /* 隐藏式滚动条 */
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.code-block:hover {
+  scrollbar-color: var(--ml-border-color) transparent;
+}
+
+.code-block::-webkit-scrollbar {
+  width: 4px;
+}
+
+.code-block::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.code-block::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 2px;
+}
+
+.code-block:hover::-webkit-scrollbar-thumb {
+  background-color: var(--ml-border-color);
 }
 
 .code-block.error {
-  background-color: var(--k-color-error-bg);
-  color: var(--k-color-error);
-  border-color: var(--k-color-error);
+  background: rgba(244, 67, 54, 0.1);
+  color: var(--ml-danger);
+  border-color: var(--ml-danger);
 }
 
 .output-gallery {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
 }
 
 .output-item {
-  border: 1px solid var(--k-color-border);
-  border-radius: 8px;
+  border: 2px solid var(--ml-border-color);
+  border-radius: var(--ml-radius);
   overflow: hidden;
-  background-color: var(--k-color-bg-2);
-  transition: transform 0.2s;
-}
-
-.output-item:hover {
-  transform: scale(1.02);
-  box-shadow: var(--k-shadow-2, 0 4px 12px var(--k-color-shadow, rgba(0, 0, 0, 0.1)));
+  background: var(--ml-bg-alt);
 }
 
 .output-image {
   width: 100%;
-  height: 150px;
+  height: 120px;
   object-fit: cover;
   display: block;
 }
 
 .text-asset {
-  padding: 0.75rem;
-  font-size: 0.85rem;
+  padding: 12px;
+  font-size: 12px;
   white-space: pre-wrap;
   word-break: break-word;
-  max-height: 150px;
+  max-height: 120px;
   overflow-y: auto;
+  /* 隐藏式滚动条 */
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.text-asset:hover {
+  scrollbar-color: var(--ml-border-color) transparent;
+}
+
+.text-asset::-webkit-scrollbar {
+  width: 4px;
+}
+
+.text-asset::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.text-asset::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 2px;
+}
+
+.text-asset:hover::-webkit-scrollbar-thumb {
+  background-color: var(--ml-border-color);
 }
 
 .file-link {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 1rem;
-  color: var(--k-color-active);
+  gap: 8px;
+  padding: 16px;
+  color: var(--ml-primary-dark);
   text-decoration: none;
-  font-size: 0.85rem;
+  font-size: 13px;
   word-break: break-all;
 }
 
-/* Gallery Detail Dialog */
-.gallery-detail-dialog :deep(.el-dialog__header) {
-  display: none;
-}
-
-.gallery-detail-dialog :deep(.el-dialog__body) {
-  padding: 0;
-}
-
-.gallery-detail {
-  display: flex;
-  height: 80vh;
-  background: var(--k-card-bg);
-  border-radius: 12px;
-  overflow: hidden;
-}
-
-.gallery-detail-media {
-  flex: 1;
-  background: var(--k-color-bg-1, #000);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-}
-
-.gallery-detail-media img,
-.gallery-detail-media video {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-}
-
-.gallery-detail-sidebar {
-  width: 320px;
-  display: flex;
-  flex-direction: column;
-  border-left: 1px solid var(--k-color-border);
-  background: var(--k-card-bg);
-}
-
-.sidebar-header {
-  padding: 1rem;
-  border-bottom: 1px solid var(--k-color-border);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.sidebar-header h3 {
-  margin: 0;
-  font-size: 1.1rem;
-  color: var(--k-color-text);
-}
-
-.sidebar-content {
-  flex: 1;
-  padding: 1rem;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: transparent transparent;
-}
-
-.sidebar-content:hover {
-  scrollbar-color: var(--k-color-border) transparent;
-}
-
-.sidebar-content::-webkit-scrollbar {
-  width: 6px;
-}
-
-.sidebar-content::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.sidebar-content::-webkit-scrollbar-thumb {
-  background-color: transparent;
-  border-radius: 3px;
-}
-
-.sidebar-content:hover::-webkit-scrollbar-thumb {
-  background-color: var(--k-color-border);
-}
-
-.info-block {
-  margin-bottom: 1.5rem;
-}
-
-.info-label {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--k-color-text-description);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 0.5rem;
-}
-
-.info-value {
-  color: var(--k-color-text);
-  font-size: 0.9rem;
-}
-
-.info-value.prompt {
-  background: var(--k-color-bg-2);
-  padding: 0.75rem;
-  border-radius: 6px;
-  font-family: monospace;
-  font-size: 0.85rem;
-  line-height: 1.5;
-  white-space: pre-wrap;
-  word-break: break-word;
-  margin-bottom: 0.5rem;
-  max-height: 200px;
-  overflow-y: auto;
-}
-
-.sidebar-footer {
-  padding: 1rem;
-  border-top: 1px solid var(--k-color-border);
-  display: flex;
-  gap: 0.5rem;
-}
-
-.download-btn {
-  text-decoration: none;
-}
-
-/* Cleanup Form */
+/* ============ 清理表单 ============ */
 .cleanup-form {
   text-align: center;
 }
 
 .cleanup-form p {
-  margin-bottom: 1rem;
-  color: var(--k-color-text);
+  margin: 0 0 16px 0;
+  font-size: 14px;
+  color: var(--ml-text);
 }
 
-.dialog-footer {
-  display: flex;
-  gap: 10px;
-  justify-content: flex-end;
-}
-
-/* 批量选择样式 */
-.batch-select-control {
-  display: flex;
-  align-items: center;
-  padding-right: 0.5rem;
-  border-right: 1px solid var(--k-color-border);
-  margin-right: 0.5rem;
-}
-
-.filter-right {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  min-height: 32px;
-}
-
-.batch-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0 0.75rem;
-  background: transparent;
-  border: none;
-  border-radius: 0;
-}
-
-.selected-count {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--k-color-active);
-}
-
-.batch-btn {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 5px 12px;
-  border: 1px solid var(--k-color-border);
-  background: var(--k-card-bg);
-  color: var(--k-color-text-description);
-  cursor: pointer;
-  border-radius: 6px;
-  font-size: 13px;
-  transition: all 0.15s ease;
-}
-
-.batch-btn:hover {
-  color: var(--k-color-text);
-  border-color: var(--k-color-active);
-}
-
-.batch-btn.danger {
-  background: var(--k-card-bg);
-  border-color: var(--k-color-error);
-  color: var(--k-color-error);
-}
-
-.batch-btn.danger:hover {
-  background: var(--k-color-bg-2);
-  border-color: var(--k-color-error);
-  color: var(--k-color-error);
-  filter: brightness(0.95);
-}
-
-/* 删除确认弹窗美化 */
+/* ============ 删除确认 ============ */
 .delete-confirm-content {
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 0.5rem 0;
 }
 
 .delete-icon-wrapper {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  background: var(--k-color-bg-2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 1.25rem;
+  font-size: 48px;
+  margin-bottom: 16px;
 }
 
-.delete-icon {
-  width: 32px;
-  height: 32px;
-  color: var(--k-color-error);
+.delete-icon-wrapper.batch {
+  font-size: 56px;
 }
 
 .delete-info {
@@ -1783,119 +1742,102 @@ onMounted(() => {
 }
 
 .delete-title {
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: var(--k-color-text);
-  margin-bottom: 0.75rem;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ml-text);
+  margin-bottom: 12px;
 }
 
 .delete-task-id {
   display: inline-block;
-  font-family: 'Consolas', 'Monaco', monospace;
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--k-color-active);
-  background: var(--k-color-bg-2);
-  padding: 0.25rem 0.75rem;
-  border-radius: 4px;
-  margin-bottom: 0.75rem;
+  font-family: 'Consolas', monospace;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ml-primary-dark);
+  background: var(--ml-bg-alt);
+  padding: 4px 12px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  border: 2px solid var(--ml-border-color);
 }
 
 .delete-prompt {
-  font-size: 0.85rem;
-  color: var(--k-color-text-description);
-  background: var(--k-color-bg-2);
-  padding: 0.75rem 1rem;
-  border-radius: 8px;
+  font-size: 13px;
+  color: var(--ml-text-muted);
+  background: var(--ml-bg-alt);
+  padding: 12px 16px;
+  border-radius: var(--ml-radius);
   line-height: 1.5;
-  max-width: 100%;
   word-break: break-word;
+  border: 2px solid var(--ml-border-color);
 }
 
 .delete-warning {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  margin-top: 1.25rem;
-  padding: 0.5rem 1rem;
-  background: var(--k-color-bg-2);
-  border: 1px solid var(--k-color-border);
-  border-radius: 6px;
-  font-size: 0.85rem;
-  color: var(--k-color-text-description);
-}
-
-.warning-icon {
-  width: 16px;
-  height: 16px;
-  flex-shrink: 0;
-}
-
-/* 批量删除弹窗增强样式 */
-.delete-icon-wrapper.batch {
-  width: 72px;
-  height: 72px;
-}
-
-.delete-icon-wrapper.batch .delete-icon {
-  width: 36px;
-  height: 36px;
+  margin-top: 16px;
+  padding: 8px 16px;
+  background: rgba(244, 67, 54, 0.1);
+  border: 2px solid var(--ml-danger);
+  border-radius: var(--ml-radius);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ml-danger);
 }
 
 .batch-count {
   display: flex;
   align-items: baseline;
   justify-content: center;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
+  gap: 8px;
+  margin-bottom: 16px;
 }
 
 .count-number {
-  font-size: 2rem;
-  font-weight: 700;
-  color: var(--k-color-active);
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--ml-primary-dark);
   line-height: 1;
 }
 
 .count-label {
-  font-size: 0.9rem;
-  color: var(--k-color-text-description);
+  font-size: 14px;
+  color: var(--ml-text-muted);
 }
 
 .batch-ids {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 0.5rem;
-  padding: 0.75rem;
-  background: var(--k-color-bg-2);
-  border-radius: 8px;
-  max-height: 120px;
+  gap: 8px;
+  padding: 12px;
+  background: var(--ml-bg-alt);
+  border-radius: var(--ml-radius);
+  max-height: 100px;
   overflow-y: auto;
+  border: 2px solid var(--ml-border-color);
 }
 
 .batch-id-tag {
   display: inline-block;
-  font-family: 'Consolas', 'Monaco', monospace;
-  font-size: 0.8rem;
-  color: var(--k-color-active);
-  background: var(--k-card-bg);
-  padding: 0.2rem 0.5rem;
-  border-radius: 4px;
-  border: 1px solid var(--k-color-border);
+  font-family: 'Consolas', monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ml-primary-dark);
+  background: var(--ml-bg);
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 2px solid var(--ml-border-color);
 }
 
 .batch-more {
-  font-size: 0.8rem;
-  color: var(--k-color-text-description);
-  padding: 0.2rem 0.5rem;
+  font-size: 12px;
+  color: var(--ml-text-muted);
+  padding: 4px 8px;
 }
 
-/* 过渡动画 */
+/* ============ 过渡动画 ============ */
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition: opacity 0.2s, transform 0.2s;
 }
 
 .fade-enter-from,

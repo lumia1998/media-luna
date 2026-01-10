@@ -127,12 +127,36 @@ const finishSetup = async () => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: var(--k-color-bg-1);
+  background: var(--ml-bg, #fffbeb);
   z-index: 100;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: auto;
+  /* 隐藏式滚动条 */
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.setup-wizard:hover {
+  scrollbar-color: var(--ml-border-color, #451a03) transparent;
+}
+
+.setup-wizard::-webkit-scrollbar {
+  width: 6px;
+}
+
+.setup-wizard::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.setup-wizard::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 3px;
+}
+
+.setup-wizard:hover::-webkit-scrollbar-thumb {
+  background-color: var(--ml-border-color, #451a03);
 }
 
 .wizard-container {
@@ -148,17 +172,18 @@ const finishSetup = async () => {
 
 .wizard-header h1 {
   font-size: 1.75rem;
-  font-weight: 600;
-  color: var(--k-color-text);
+  font-weight: 800;
+  color: var(--ml-text, #451a03);
   margin: 0 0 0.5rem 0;
 }
 
 .wizard-header p {
-  color: var(--k-color-text-description);
+  color: var(--ml-text-secondary, #92400e);
   margin: 0;
+  font-weight: 600;
 }
 
-/* 步骤指示器 */
+/* 步骤指示器 - 波普风格 */
 .steps-indicator {
   display: flex;
   justify-content: center;
@@ -180,62 +205,65 @@ const finishSetup = async () => {
   left: calc(50% + 20px);
   top: 16px;
   width: calc(2rem + 20px);
-  height: 2px;
-  background: var(--k-color-border);
+  height: 3px;
+  background: var(--ml-border-color, #451a03);
 }
 
 .step-item.completed:not(:last-child)::after {
-  background: var(--k-color-success);
+  background: var(--ml-success, #10b981);
 }
 
 .step-number {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 600;
+  font-weight: 800;
   font-size: 0.9rem;
-  background: var(--k-color-bg-2);
-  color: var(--k-color-text-description);
-  border: 2px solid var(--k-color-border);
+  background: var(--ml-surface, #ffffff);
+  color: var(--ml-text-muted, #92400e);
+  border: 3px solid var(--ml-border-color, #451a03);
   transition: all 0.2s;
+  box-shadow: 2px 2px 0 var(--ml-border-color, #451a03);
 }
 
 .step-item.active .step-number {
-  background: var(--k-color-active);
-  color: white;
-  border-color: var(--k-color-active);
+  background: var(--ml-primary, #fbbf24);
+  color: var(--ml-text, #451a03);
+  border-color: var(--ml-border-color, #451a03);
 }
 
 .step-item.completed .step-number {
-  background: var(--k-color-success);
+  background: var(--ml-success, #10b981);
   color: white;
-  border-color: var(--k-color-success);
+  border-color: var(--ml-border-color, #451a03);
 }
 
 .step-label {
   font-size: 0.85rem;
-  color: var(--k-color-text-description);
+  font-weight: 600;
+  color: var(--ml-text-muted, #92400e);
 }
 
 .step-item.active .step-label {
-  color: var(--k-color-text);
-  font-weight: 500;
+  color: var(--ml-text, #451a03);
+  font-weight: 700;
 }
 
 .step-item.completed .step-label {
-  color: var(--k-color-success);
+  color: var(--ml-success, #10b981);
 }
 
-/* 步骤内容 */
+/* 步骤内容 - 波普卡片 */
 .wizard-content {
-  background: var(--k-card-bg);
-  border: 1px solid var(--k-color-border);
-  border-radius: 12px;
+  background: var(--ml-surface, #ffffff);
+  border: 3px solid var(--ml-border-color, #451a03);
+  border-radius: var(--ml-radius-lg, 16px);
   padding: 2rem;
   min-height: 400px;
+  box-shadow: var(--ml-shadow, 4px 4px 0 #451a03);
 }
 
 /* 完成步骤 */
@@ -250,20 +278,21 @@ const finishSetup = async () => {
 
 .complete-icon {
   font-size: 4rem;
-  color: var(--k-color-success);
+  color: var(--ml-success, #10b981);
   margin-bottom: 1.5rem;
 }
 
 .step-complete h2 {
   font-size: 1.5rem;
-  font-weight: 600;
-  color: var(--k-color-text);
+  font-weight: 800;
+  color: var(--ml-text, #451a03);
   margin: 0 0 0.75rem 0;
 }
 
 .step-complete p {
-  color: var(--k-color-text-description);
+  color: var(--ml-text-secondary, #92400e);
   margin: 0 0 2rem 0;
+  font-weight: 600;
 }
 
 /* 过渡动画 */

@@ -445,31 +445,34 @@ watch(showPresetsDialog, (v) => {
   gap: 6px;
 }
 
-/* 卡片列表 */
+/* 卡片列表 - 波普风格 */
 .card-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .item-card {
-  background: var(--k-card-bg, #fff);
-  border: 1px solid var(--k-color-border, #e4e7ed);
-  border-radius: 8px;
-  transition: all 0.2s;
+  background: var(--ml-surface, #ffffff);
+  border: 2px solid var(--ml-border-color, #451a03);
+  border-radius: var(--ml-radius, 12px);
+  transition: all 0.15s ease;
+  box-shadow: 2px 2px 0 var(--ml-border-color, #451a03);
 }
 
 .item-card:hover {
-  border-color: var(--k-color-active, #409eff);
+  border-color: var(--ml-primary, #fbbf24);
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--ml-border-color, #451a03);
 }
 
 .item-card.expanded {
-  border-color: var(--k-color-active, #409eff);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border-color: var(--ml-primary, #fbbf24);
+  box-shadow: 3px 3px 0 var(--ml-border-color, #451a03);
 }
 
 .item-card.selected {
-  background: var(--el-color-primary-light-9, #ecf5ff);
+  background: var(--ml-primary-light, #fde68a);
 }
 
 /* 卡片头部 */
@@ -477,9 +480,9 @@ watch(showPresetsDialog, (v) => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 12px;
+  padding: 12px 14px;
   cursor: pointer;
-  min-height: 44px;
+  min-height: 48px;
 }
 
 .header-left {
@@ -498,8 +501,8 @@ watch(showPresetsDialog, (v) => {
 }
 
 .item-title {
-  font-weight: 500;
-  color: var(--k-color-text, #303133);
+  font-weight: 700;
+  color: var(--ml-text, #451a03);
   font-size: 14px;
   white-space: nowrap;
   overflow: hidden;
@@ -508,7 +511,8 @@ watch(showPresetsDialog, (v) => {
 
 .item-subtitle {
   font-size: 12px;
-  color: var(--k-color-text-description, #909399);
+  color: var(--ml-text-secondary, #92400e);
+  font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -522,7 +526,7 @@ watch(showPresetsDialog, (v) => {
 }
 
 .expand-icon {
-  color: var(--k-color-text-description, #909399);
+  color: var(--ml-text-secondary, #92400e);
   transition: transform 0.2s;
 }
 
@@ -537,11 +541,12 @@ watch(showPresetsDialog, (v) => {
 
 /* 卡片内容 */
 .card-body {
-  padding: 12px 16px 16px;
-  border-top: 1px solid var(--k-color-border, #e4e7ed);
+  padding: 14px 16px 18px;
+  border-top: 2px solid var(--ml-border-color, #451a03);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
+  background: var(--ml-bg-alt, #fef3c7);
 }
 
 .field-row {
@@ -554,14 +559,15 @@ watch(showPresetsDialog, (v) => {
   width: 100px;
   flex-shrink: 0;
   font-size: 13px;
-  color: var(--k-color-text-secondary, #606266);
+  font-weight: 700;
+  color: var(--ml-text-secondary, #92400e);
   padding-top: 5px;
   text-align: right;
 }
 
 .field-label.required::after {
   content: '*';
-  color: #f56c6c;
+  color: var(--ml-error, #ef4444);
   margin-left: 2px;
 }
 
@@ -577,38 +583,42 @@ watch(showPresetsDialog, (v) => {
 
 .field-desc {
   font-size: 12px;
-  color: var(--k-color-text-description, #909399);
+  color: var(--ml-text-muted, #92400e);
   margin-top: 4px;
+  font-weight: 600;
 }
 
 .num-input {
   width: 100%;
 }
 
-/* 空状态 */
+/* 空状态 - 波普风格 */
 .empty-state {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 10px;
   padding: 40px 20px;
-  color: var(--k-color-text-description, #c0c4cc);
+  color: var(--ml-text-secondary, #92400e);
   font-size: 13px;
-  background: var(--k-color-fill-light, #fafafa);
-  border: 1px dashed var(--k-color-border, #dcdfe6);
-  border-radius: 8px;
+  font-weight: 600;
+  background: var(--ml-bg-alt, #fef3c7);
+  border: 2px dashed var(--ml-border-color, #451a03);
+  border-radius: var(--ml-radius, 12px);
 }
 
 .empty-state .k-icon {
-  font-size: 24px;
-  opacity: 0.5;
+  font-size: 28px;
+  opacity: 0.6;
+  color: var(--ml-text-muted, #92400e);
 }
 
 .table-footer {
-  margin-top: 8px;
+  margin-top: 10px;
   font-size: 12px;
-  color: var(--k-color-text-description, #909399);
+  font-weight: 700;
+  color: var(--ml-text-secondary, #92400e);
   text-align: right;
 }
 
@@ -616,19 +626,20 @@ watch(showPresetsDialog, (v) => {
 .dialog-tip {
   margin: 0 0 10px;
   font-size: 13px;
-  color: var(--k-color-text-secondary);
+  font-weight: 600;
+  color: var(--ml-text-secondary, #92400e);
 }
 
 .import-mode {
   margin-top: 10px;
 }
 
-/* 预设对话框 */
+/* 预设对话框 - 波普风格 */
 .presets-header {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
 .search-input {
@@ -638,21 +649,22 @@ watch(showPresetsDialog, (v) => {
 .sel-count {
   margin-left: auto;
   font-size: 12px;
-  color: var(--k-color-text-description);
+  font-weight: 700;
+  color: var(--ml-text-secondary, #92400e);
 }
 
 .presets-list {
   max-height: 360px;
   overflow-y: auto;
-  border: 1px solid var(--k-color-border, #dcdfe6);
-  border-radius: 4px;
+  border: 2px solid var(--ml-border-color, #451a03);
+  border-radius: var(--ml-radius-sm, 8px);
   /* 隐藏式滚动条 */
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
 }
 
 .presets-list:hover {
-  scrollbar-color: var(--k-color-border) transparent;
+  scrollbar-color: var(--ml-border-color, #451a03) transparent;
 }
 
 .presets-list::-webkit-scrollbar {
@@ -669,17 +681,17 @@ watch(showPresetsDialog, (v) => {
 }
 
 .presets-list:hover::-webkit-scrollbar-thumb {
-  background-color: var(--k-color-border);
+  background-color: var(--ml-border-color, #451a03);
 }
 
 .preset-row {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--k-color-border, #ebeef5);
+  padding: 10px 14px;
+  border-bottom: 2px solid var(--ml-border-color, #451a03);
   cursor: pointer;
-  transition: background 0.15s;
+  transition: all 0.15s ease;
 }
 
 .preset-row:last-child {
@@ -687,11 +699,11 @@ watch(showPresetsDialog, (v) => {
 }
 
 .preset-row:hover:not(.disabled) {
-  background: var(--k-color-fill-light, #f5f7fa);
+  background: var(--ml-bg-alt, #fef3c7);
 }
 
 .preset-row.selected:not(.disabled) {
-  background: #ecf5ff;
+  background: var(--ml-primary-light, #fde68a);
 }
 
 .preset-row.disabled {
@@ -700,14 +712,16 @@ watch(showPresetsDialog, (v) => {
 }
 
 .p-alias {
-  font-weight: 500;
+  font-weight: 700;
   min-width: 80px;
+  color: var(--ml-text, #451a03);
 }
 
 .p-desc {
   flex: 1;
   font-size: 12px;
-  color: var(--k-color-text-description);
+  font-weight: 600;
+  color: var(--ml-text-secondary, #92400e);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

@@ -3,7 +3,7 @@
     <!-- 可视化区域 -->
     <div class="audio-visual" @click="togglePlay">
       <div class="audio-play-btn" :class="{ playing: isPlaying }">
-        <k-icon :name="isPlaying ? 'pause' : 'play'"></k-icon>
+        <span>{{ isPlaying ? '⏸' : '▶️' }}</span>
       </div>
       <span class="audio-duration-badge">
         {{ currentTimeDisplay }} / {{ durationDisplay }}
@@ -151,21 +151,26 @@ defineExpose({
 })
 </script>
 
-<style scoped>
+<style lang="scss">
+@use '../styles/theme.scss';
+</style>
+
+<style scoped lang="scss">
 .audio-player {
   position: relative;
   display: flex;
   flex-direction: column;
   width: 100%;
   min-width: 200px;
-  border-radius: 16px;
+  border-radius: var(--ml-radius);
   overflow: hidden;
-  background: var(--k-card-bg);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  background: var(--ml-surface);
+  border: 3px solid var(--ml-border-color);
+  box-shadow: var(--ml-shadow-sm);
 }
 
 .audio-player:hover {
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--ml-shadow);
 }
 
 /* 可视化区域 */
@@ -176,13 +181,13 @@ defineExpose({
   justify-content: center;
   gap: 1rem;
   padding: 2.5rem 2rem;
-  background: linear-gradient(145deg, rgba(103, 194, 58, 0.1), rgba(64, 158, 255, 0.1));
+  background: linear-gradient(145deg, rgba(251, 191, 36, 0.2), rgba(254, 243, 199, 0.3));
   cursor: pointer;
   transition: all 0.3s ease;
 }
 
 .audio-visual:hover {
-  background: linear-gradient(145deg, rgba(103, 194, 58, 0.15), rgba(64, 158, 255, 0.15));
+  background: linear-gradient(145deg, rgba(251, 191, 36, 0.3), rgba(254, 243, 199, 0.4));
 }
 
 .audio-visual:active {
@@ -194,61 +199,52 @@ defineExpose({
   width: 72px;
   height: 72px;
   border-radius: 50%;
-  background: linear-gradient(135deg, rgba(103, 194, 58, 0.3), rgba(64, 158, 255, 0.3));
+  background: var(--ml-primary);
+  border: 3px solid var(--ml-border-color);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--k-color-success, #67c23a);
   font-size: 1.75rem;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 20px rgba(103, 194, 58, 0.2);
-}
-
-.audio-play-btn .k-icon {
-  margin-left: 3px;
-}
-
-.audio-play-btn.playing .k-icon {
-  margin-left: 0;
+  box-shadow: var(--ml-shadow-sm);
 }
 
 .audio-visual:hover .audio-play-btn {
   transform: scale(1.1);
-  box-shadow: 0 6px 28px rgba(103, 194, 58, 0.35);
-  background: linear-gradient(135deg, rgba(103, 194, 58, 0.4), rgba(64, 158, 255, 0.4));
+  box-shadow: var(--ml-shadow);
 }
 
 .audio-play-btn.playing {
-  background: linear-gradient(135deg, rgba(64, 158, 255, 0.4), rgba(103, 194, 58, 0.4));
-  color: var(--k-color-active);
+  background: var(--ml-cream);
 }
 
 /* 时间徽章 */
 .audio-duration-badge {
   font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--k-color-text-description);
-  padding: 4px 12px;
-  background: rgba(0, 0, 0, 0.06);
-  border-radius: 12px;
+  font-weight: 700;
+  color: var(--ml-text);
+  padding: 6px 14px;
+  background: var(--ml-surface);
+  border-radius: var(--ml-radius);
+  border: 2px solid var(--ml-border-color);
 }
 
 /* 进度条 */
 .audio-progress-bar {
-  height: 6px;
-  background: var(--k-color-bg-2);
+  height: 8px;
+  background: var(--ml-cream);
   cursor: pointer;
   position: relative;
   transition: height 0.2s;
 }
 
 .audio-progress-bar:hover {
-  height: 10px;
+  height: 12px;
 }
 
 .audio-progress {
   height: 100%;
-  background: linear-gradient(90deg, var(--k-color-success, #67c23a), var(--k-color-active));
+  background: linear-gradient(90deg, var(--ml-primary), var(--ml-primary-dark));
   border-radius: 0 3px 3px 0;
   transition: width 0.1s linear;
 }
@@ -263,6 +259,8 @@ defineExpose({
   min-width: 0;
   border-radius: 0;
   box-shadow: none;
+  border: none;
+  border-bottom: 2px solid var(--ml-border-color);
 }
 
 .audio-player--compact:hover {
@@ -278,15 +276,12 @@ defineExpose({
   width: 40px;
   height: 40px;
   font-size: 1rem;
-}
-
-.audio-player--compact .audio-play-btn .k-icon {
-  margin-left: 2px;
+  border-width: 2px;
 }
 
 .audio-player--compact .audio-duration-badge {
   font-size: 0.65rem;
-  padding: 2px 8px;
+  padding: 3px 10px;
 }
 
 .audio-player--compact .audio-progress-bar {
@@ -301,6 +296,7 @@ defineExpose({
 .audio-player--large {
   background: transparent;
   box-shadow: none;
+  border: none;
   max-width: 400px;
   margin: 0 auto;
 }
@@ -311,48 +307,41 @@ defineExpose({
 
 .audio-player--large .audio-visual {
   padding: 3rem 2rem;
-  background: linear-gradient(145deg, rgba(103, 194, 58, 0.15), rgba(64, 158, 255, 0.15));
-  border-radius: 20px;
+  background: linear-gradient(145deg, rgba(251, 191, 36, 0.25), rgba(254, 243, 199, 0.35));
+  border-radius: var(--ml-radius);
+  border: 3px solid var(--ml-border-color);
 }
 
 .audio-player--large .audio-play-btn {
   width: 120px;
   height: 120px;
   font-size: 3rem;
-  box-shadow: 0 8px 32px rgba(103, 194, 58, 0.3);
-}
-
-.audio-player--large .audio-play-btn .k-icon {
-  margin-left: 6px;
-}
-
-.audio-player--large .audio-play-btn.playing .k-icon {
-  margin-left: 0;
+  box-shadow: var(--ml-shadow);
 }
 
 .audio-player--large .audio-visual:hover .audio-play-btn {
   transform: scale(1.08);
-  box-shadow: 0 12px 40px rgba(103, 194, 58, 0.4);
 }
 
 .audio-player--large .audio-duration-badge {
   font-size: 1.125rem;
-  padding: 6px 16px;
+  padding: 8px 18px;
   margin-top: 0.5rem;
 }
 
 .audio-player--large .audio-progress-bar {
-  height: 8px;
+  height: 10px;
   margin-top: 1rem;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.1);
+  border-radius: var(--ml-radius);
+  background: rgba(69, 26, 3, 0.1);
+  border: 2px solid var(--ml-border-color);
 }
 
 .audio-player--large .audio-progress-bar:hover {
-  height: 12px;
+  height: 14px;
 }
 
 .audio-player--large .audio-progress {
-  border-radius: 4px;
+  border-radius: var(--ml-radius);
 }
 </style>

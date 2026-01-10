@@ -1,11 +1,10 @@
 <template>
-  <div class="ml-view-container">
-    <div class="ml-view-header">
-      <div class="ml-header-left">
-        <k-button solid type="primary" @click="openCreateDialog">
-          <template #icon><k-icon name="add"></k-icon></template>
-          新建渠道
-        </k-button>
+  <div class="channels-view">
+    <div class="view-header">
+      <div class="header-left">
+        <button class="pop-btn primary" @click="openCreateDialog">
+          ➕ 新建渠道
+        </button>
         <ConnectorFilter
           v-model="selectedConnectors"
           :connectors="connectors"
@@ -19,95 +18,92 @@
         />
         <SortSelect v-model="sortBy" />
       </div>
-      <div class="ml-header-right">
+      <div class="header-right">
         <div class="search-wrapper">
-          <el-input
+          <input
             v-model="searchQuery"
-            placeholder="搜索渠道..."
-            size="small"
-            clearable
-            class="search-input"
-          >
-            <template #prefix><k-icon name="search"></k-icon></template>
-          </el-input>
+            type="text"
+            class="pop-input search-input"
+            placeholder="🔍 搜索渠道..."
+          />
         </div>
         <ViewModeSwitch v-model="viewMode" />
       </div>
     </div>
 
-    <div class="ml-view-content">
+    <div class="view-content pop-scrollbar">
       <LoadingState v-if="loading" />
 
       <!-- 卡片视图 -->
-      <div v-else-if="viewMode === 'card'" class="ml-grid">
-        <div v-for="channel in filteredChannels" :key="channel.id">
-          <div
-            class="ml-card ml-card--clickable"
-            :class="{ 'ml-card--disabled': !channel.enabled }"
-            @click="openEditDialog(channel)"
-          >
-            <div class="card-header">
-              <div class="header-main">
-                <div class="channel-title">
-                  <div class="connector-logo">
-                    <img
-                      v-if="getConnectorIconUrl(channel.connectorId)"
-                      :src="getConnectorIconUrl(channel.connectorId)"
-                      :alt="getConnectorName(channel.connectorId)"
-                    />
-                    <k-icon v-else name="link"></k-icon>
-                  </div>
-                  <div class="channel-info">
-                    <div class="channel-name">{{ channel.name }}</div>
-                    <div class="connector-name">{{ getConnectorName(channel.connectorId) }}</div>
-                  </div>
+      <div v-else-if="viewMode === 'card'" class="card-grid">
+        <div
+          v-for="channel in filteredChannels"
+          :key="channel.id"
+          class="channel-card pop-card"
+          :class="{ 'disabled': !channel.enabled }"
+          @click="openEditDialog(channel)"
+        >
+          <div class="card-header">
+            <div class="header-main">
+              <div class="channel-title">
+                <div class="connector-logo">
+                  <img
+                    v-if="getConnectorIconUrl(channel.connectorId)"
+                    :src="getConnectorIconUrl(channel.connectorId)"
+                    :alt="getConnectorName(channel.connectorId)"
+                  />
+                  <span v-else>🔗</span>
                 </div>
-                <el-switch v-model="channel.enabled" size="small" @change="toggleEnable(channel)" @click.stop />
+                <div class="channel-info">
+                  <div class="channel-name">{{ channel.name }}</div>
+                  <div class="connector-name">{{ getConnectorName(channel.connectorId) }}</div>
+                </div>
               </div>
-              <div class="header-meta">
-                <span
-                  class="speaker-id-badge"
-                  title="点击复制 Speaker ID"
-                  @click.stop="copySpeakerId(channel.id)"
-                >
-                  <k-icon name="voice"></k-icon>
-                  {{ getSpeakerId(channel.id) }}
+              <label class="toggle-switch" @click.stop>
+                <input type="checkbox" v-model="channel.enabled" @change="toggleEnable(channel)" />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+            <div class="header-meta">
+              <span
+                class="speaker-id-badge"
+                title="点击复制 Speaker ID"
+                @click.stop="copySpeakerId(channel.id)"
+              >
+                🎤 {{ getSpeakerId(channel.id) }}
+              </span>
+              <!-- 中间件字段（如费用）显示在标题旁 -->
+              <template v-for="field in middlewareCardFields" :key="`mw-${field.key}`">
+                <span class="cost-badge" v-if="field.key === 'cost' && getCardFieldValue(channel, field)">
+                  {{ formatFieldValue(getCardFieldValue(channel, field), field.format, getCurrencySuffix(channel, field)) }}
                 </span>
-                <!-- 中间件字段（如费用）显示在标题旁 -->
-                <template v-for="field in middlewareCardFields" :key="`mw-${field.key}`">
-                  <span class="cost-badge" v-if="field.key === 'cost' && getCardFieldValue(channel, field)">
-                    {{ formatFieldValue(getCardFieldValue(channel, field), field.format, getCurrencySuffix(channel, field)) }}
-                  </span>
-                </template>
+              </template>
+            </div>
+          </div>
+
+          <div class="card-body">
+            <!-- 配置字段列表 -->
+            <div class="field-list" v-if="getCardFields(channel).length">
+              <div v-for="field in getCardFields(channel)" :key="field.key" class="field-item">
+                <span class="field-label">{{ field.label }}</span>
+                <span class="field-value">{{ formatCardFieldValue(channel, field) }}</span>
               </div>
             </div>
 
-            <div class="card-body">
-              <!-- 配置字段列表 -->
-              <div class="field-list" v-if="getCardFields(channel).length">
-                <div v-for="field in getCardFields(channel)" :key="field.key" class="field-item">
-                  <span class="field-label">{{ field.label }}</span>
-                  <span class="field-value">{{ formatCardFieldValue(channel, field) }}</span>
-                </div>
-              </div>
-
-              <!-- 标签 -->
-              <div class="tags-list" v-if="channel.tags && channel.tags.length">
-                <span v-for="tag in channel.tags" :key="tag" class="tag-pill">{{ tag }}</span>
-              </div>
+            <!-- 标签 -->
+            <div class="tags-list" v-if="channel.tags && channel.tags.length">
+              <span v-for="tag in channel.tags" :key="tag" class="tag-pill">{{ tag }}</span>
             </div>
+          </div>
 
-            <div class="card-footer" @click.stop>
-              <k-button size="mini" class="ml-btn-outline-primary" @click="copyChannel(channel)">
-                <template #icon><k-icon name="copy"></k-icon></template>
-                复制
-              </k-button>
-              <div class="spacer"></div>
-              <k-button size="mini" class="ml-btn-outline-danger" @click="confirmDelete(channel)">
-                 <template #icon><k-icon name="delete"></k-icon></template>
-                 删除
-              </k-button>
-            </div>
+          <div class="card-footer" @click.stop>
+            <button class="pop-btn small" @click="copyChannel(channel)">
+              📋 复制
+            </button>
+            <div class="spacer"></div>
+            <button class="pop-btn small danger" @click="confirmDelete(channel)">
+              🗑️ 删除
+            </button>
           </div>
         </div>
 
@@ -116,18 +112,18 @@
           <div class="empty-icon">📭</div>
           <div class="empty-text" v-if="channels.length === 0">还没有创建任何渠道</div>
           <div class="empty-text" v-else>没有找到匹配的渠道</div>
-          <k-button v-if="channels.length === 0" type="primary" @click="openCreateDialog">
+          <button v-if="channels.length === 0" class="pop-btn primary" @click="openCreateDialog">
             创建第一个渠道
-          </k-button>
-          <k-button v-else @click="clearFilters">
+          </button>
+          <button v-else class="pop-btn" @click="clearFilters">
             清除筛选条件
-          </k-button>
+          </button>
         </div>
       </div>
 
       <!-- 列表视图 -->
-      <div v-else class="ml-table-container">
-        <table class="ml-table">
+      <div v-else class="table-container pop-card">
+        <table class="pop-table">
           <thead>
             <tr>
               <th class="col-name">名称</th>
@@ -172,18 +168,19 @@
                 </template>
               </td>
               <td class="col-status" @click.stop>
-                <el-switch v-model="channel.enabled" size="small" @change="toggleEnable(channel)" />
+                <label class="toggle-switch small">
+                  <input type="checkbox" v-model="channel.enabled" @change="toggleEnable(channel)" />
+                  <span class="toggle-slider"></span>
+                </label>
               </td>
               <td class="col-actions" @click.stop>
                 <div class="action-btns">
-                  <k-button size="mini" class="ml-btn-outline-primary" @click="copyChannel(channel)">
-                    <template #icon><k-icon name="copy"></k-icon></template>
-                    复制
-                  </k-button>
-                  <k-button size="mini" class="ml-btn-outline-danger" @click="confirmDelete(channel)">
-                    <template #icon><k-icon name="delete"></k-icon></template>
-                    删除
-                  </k-button>
+                  <button class="pop-btn small" @click="copyChannel(channel)">
+                    📋 复制
+                  </button>
+                  <button class="pop-btn small danger" @click="confirmDelete(channel)">
+                    🗑️ 删除
+                  </button>
                 </div>
               </td>
             </tr>
@@ -203,7 +200,6 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { message } from '@koishijs/client'
 import { ChannelConfig, ConfigField, ConnectorDefinition, CardField } from '../types'
 import { channelApi, connectorApi, middlewareApi } from '../api'
 import TagFilter from './TagFilter.vue'
@@ -478,10 +474,10 @@ const copySpeakerId = async (channelId: number) => {
       document.execCommand('copy')
       document.body.removeChild(textArea)
     }
-    message.success(`已复制 Speaker ID: ${speakerId}`)
+    alert(`已复制 Speaker ID: ${speakerId}`)
   } catch (e) {
     console.error('Failed to copy:', e)
-    message.error('复制失败')
+    alert('复制失败')
   }
 }
 
@@ -498,7 +494,7 @@ const fetchData = async () => {
     middlewareCardFields.value = mwCardFieldsResponse.fields
     middlewareGlobalConfigs.value = mwCardFieldsResponse.globalConfigs
   } catch (e) {
-    message.error('加载数据失败')
+    alert('加载数据失败')
   } finally {
     loading.value = false
   }
@@ -522,10 +518,10 @@ const confirmDelete = async (channel: ChannelConfig) => {
   if (!confirm(`确定要删除渠道 "${channel.name}" 吗？`)) return
   try {
     await channelApi.delete(channel.id)
-    message.success('删除成功')
+    alert('删除成功')
     fetchData()
   } catch (e) {
-    message.error('删除失败')
+    alert('删除失败')
   }
 }
 
@@ -534,7 +530,7 @@ const toggleEnable = async (channel: ChannelConfig) => {
     await channelApi.toggle(channel.id, channel.enabled)
   } catch (e) {
     channel.enabled = !channel.enabled
-    message.error('操作失败')
+    alert('操作失败')
   }
 }
 
@@ -551,26 +547,108 @@ onMounted(() => {
 })
 </script>
 
-<style scoped>
-@import '../styles/shared.css';
+<style lang="scss">
+@use '../styles/theme.scss';
+</style>
+
+<style scoped lang="scss">
+.channels-view {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden; /* 视图本身不滚动 */
+}
+
+.view-header {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding: 0 0.25rem; /* 与 view-content 对齐 */
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.view-content {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0.25rem;
+  /* 隐藏式滚动条 */
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.view-content:hover {
+  scrollbar-color: var(--ml-border-color) transparent;
+}
+
+.view-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.view-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.view-content::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 3px;
+}
+
+.view-content:hover::-webkit-scrollbar-thumb {
+  background-color: var(--ml-border-color);
+}
 
 /* ========== 搜索框样式 ========== */
-.search-wrapper {
-  flex-shrink: 0;
-}
-
 .search-input {
-  width: 180px;
+  width: 200px;
 }
 
-/* ========== 渠道卡片特有样式 ========== */
+/* ========== 卡片网格 ========== */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1rem;
+}
 
-/* 卡片内部布局 */
+/* ========== 渠道卡片 ========== */
+.channel-card {
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+}
+
+.channel-card.disabled {
+  opacity: 0.6;
+}
+
+.channel-card.disabled .connector-logo {
+  filter: grayscale(0.6);
+}
+
 .card-header {
   padding: 1rem 1.25rem 0.75rem;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  border-bottom: 2px dashed var(--ml-border-color);
 }
 
 .header-main {
@@ -586,7 +664,7 @@ onMounted(() => {
   flex-wrap: wrap;
 }
 
-/* 渠道标题区域（Logo + 名称信息） */
+/* 渠道标题区域 */
 .channel-title {
   display: flex;
   align-items: center;
@@ -595,25 +673,22 @@ onMounted(() => {
 
 .connector-logo {
   flex-shrink: 0;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: var(--k-color-bg-2);
-  border-radius: 8px;
+  background-color: var(--ml-bg);
+  border: 2px solid var(--ml-border-color);
+  border-radius: 10px;
   overflow: hidden;
+  font-size: 1.5rem;
 }
 
 .connector-logo img {
   width: 28px;
   height: 28px;
   object-fit: contain;
-}
-
-.connector-logo .k-icon {
-  font-size: 1.5rem;
-  color: var(--k-color-text-description);
 }
 
 .channel-info {
@@ -625,8 +700,8 @@ onMounted(() => {
 
 .channel-name {
   font-size: 1rem;
-  font-weight: 600;
-  color: var(--k-color-text);
+  font-weight: 800;
+  color: var(--ml-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -634,52 +709,42 @@ onMounted(() => {
 
 .connector-name {
   font-size: 0.75rem;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-muted);
+  font-weight: 600;
 }
 
 .speaker-id-badge {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 3px 8px;
-  background: linear-gradient(135deg, rgba(103, 194, 58, 0.12), rgba(64, 158, 255, 0.12));
-  border: 1px solid rgba(103, 194, 58, 0.25);
+  padding: 4px 10px;
+  background: var(--ml-success-light);
+  border: 2px solid var(--ml-border-color);
   border-radius: 12px;
   font-size: 0.75rem;
   font-family: 'SF Mono', Monaco, 'Consolas', monospace;
-  font-weight: 500;
-  color: var(--k-color-success, #67c23a);
+  font-weight: 700;
+  color: var(--ml-success);
   cursor: pointer;
-  transition: all 0.2s ease;
-  user-select: none;
+  transition: all 0.2s;
 }
 
 .speaker-id-badge:hover {
-  background: linear-gradient(135deg, rgba(103, 194, 58, 0.2), rgba(64, 158, 255, 0.2));
-  border-color: rgba(103, 194, 58, 0.4);
-  transform: scale(1.02);
-  box-shadow: 0 2px 8px rgba(103, 194, 58, 0.15);
-}
-
-.speaker-id-badge:active {
-  transform: scale(0.98);
-}
-
-.speaker-id-badge .k-icon {
-  font-size: 0.7rem;
-  opacity: 0.8;
-  pointer-events: none;
+  transform: translateY(-2px);
+  box-shadow: var(--ml-shadow-sm);
 }
 
 .connector-badge {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  padding: 2px 8px;
-  background-color: var(--k-color-bg-2);
-  border-radius: 4px;
+  padding: 4px 10px;
+  background-color: var(--ml-bg);
+  border: 2px solid var(--ml-border-color);
+  border-radius: 8px;
   font-size: 0.8rem;
-  color: var(--k-color-text-description);
+  font-weight: 700;
+  color: var(--ml-text-secondary);
 }
 
 .connector-icon {
@@ -692,21 +757,22 @@ onMounted(() => {
 .cost-badge {
   display: inline-flex;
   align-items: center;
-  padding: 2px 8px;
-  background-color: var(--k-color-success-light, rgba(103, 194, 58, 0.1));
-  color: var(--k-color-success, #67c23a);
-  border-radius: 4px;
+  padding: 4px 10px;
+  background-color: var(--ml-success-light);
+  color: var(--ml-success);
+  border: 2px solid var(--ml-border-color);
+  border-radius: 8px;
   font-size: 0.8rem;
-  font-weight: 500;
+  font-weight: 700;
 }
 
 .card-body {
   flex-grow: 1;
-  padding: 0 1.25rem 1rem;
+  padding: 1rem 1.25rem;
   min-height: 40px;
 }
 
-/* 字段列表样式 */
+/* 字段列表 */
 .field-list {
   display: flex;
   flex-direction: column;
@@ -720,7 +786,7 @@ onMounted(() => {
   align-items: center;
   font-size: 0.85rem;
   padding: 0.25rem 0;
-  border-bottom: 1px dashed var(--k-color-border);
+  border-bottom: 1px dashed var(--ml-border-color);
 }
 
 .field-item:last-child {
@@ -728,12 +794,13 @@ onMounted(() => {
 }
 
 .field-label {
-  color: var(--k-color-text-description);
+  color: var(--ml-text-muted);
+  font-weight: 600;
 }
 
 .field-value {
-  font-weight: 500;
-  color: var(--k-color-text);
+  font-weight: 700;
+  color: var(--ml-text);
 }
 
 .tags-list {
@@ -744,29 +811,95 @@ onMounted(() => {
 
 .tag-pill {
   font-size: 0.75rem;
-  padding: 1px 6px;
-  color: var(--k-color-text-description);
-  border: 1px solid var(--k-color-border);
+  padding: 2px 8px;
+  color: var(--ml-text-secondary);
+  border: 2px solid var(--ml-border-color);
   border-radius: 12px;
-  background-color: transparent;
+  background-color: var(--ml-bg);
+  font-weight: 600;
 }
 
 .card-footer {
   padding: 0.75rem 1.25rem;
-  border-top: 1px solid var(--k-color-border);
+  border-top: 2px solid var(--ml-border-color);
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  background-color: rgba(0, 0, 0, 0.02);
+  background-color: var(--ml-bg-alt);
 }
 
 .spacer {
   flex-grow: 1;
 }
 
-/* ========== 列表视图特有样式 ========== */
+/* ========== 切换开关 ========== */
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+}
 
-/* 表格列宽定义 */
+.toggle-switch.small {
+  width: 36px;
+  height: 20px;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--ml-bg-alt);
+  border: 2px solid var(--ml-border-color);
+  border-radius: 24px;
+  transition: all 0.2s;
+}
+
+.toggle-slider::before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 2px;
+  bottom: 2px;
+  background-color: var(--ml-surface);
+  border: 2px solid var(--ml-border-color);
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.toggle-switch.small .toggle-slider::before {
+  height: 12px;
+  width: 12px;
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background-color: var(--ml-success);
+}
+
+.toggle-switch input:checked + .toggle-slider::before {
+  transform: translateX(20px);
+}
+
+.toggle-switch.small input:checked + .toggle-slider::before {
+  transform: translateX(16px);
+}
+
+/* ========== 表格视图 ========== */
+.table-container {
+  overflow: hidden;
+}
+
+/* 表格列宽 */
 .col-name { width: 20%; }
 .col-connector { width: 15%; }
 .col-tags { width: auto; }
@@ -775,8 +908,8 @@ onMounted(() => {
 .col-actions { width: 15%; }
 
 .name-text {
-  font-weight: 600;
-  color: var(--k-color-text);
+  font-weight: 700;
+  color: var(--ml-text);
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -791,21 +924,22 @@ onMounted(() => {
 
 .mini-tag {
   font-size: 0.7rem;
-  padding: 1px 6px;
-  color: var(--k-color-text-description);
-  border: 1px solid var(--k-color-border);
+  padding: 2px 6px;
+  color: var(--ml-text-secondary);
+  border: 2px solid var(--ml-border-color);
   border-radius: 10px;
   background-color: transparent;
+  font-weight: 600;
 }
 
 .mini-tag.more {
-  background-color: var(--k-color-bg-2);
+  background-color: var(--ml-bg-alt);
 }
 
 .cost-value {
   font-size: 0.85rem;
-  color: var(--k-color-success, #67c23a);
-  font-weight: 500;
+  color: var(--ml-success);
+  font-weight: 700;
 }
 
 .action-btns {
@@ -813,25 +947,7 @@ onMounted(() => {
   gap: 0.5rem;
 }
 
-/* ========== 禁用状态卡片样式 ========== */
-.ml-card--disabled {
-  opacity: 0.6;
-  background-color: var(--k-color-bg-2);
-}
-
-.ml-card--disabled .connector-logo {
-  filter: grayscale(0.6);
-}
-
-.ml-card--disabled .channel-name {
-  color: var(--k-color-text-description);
-}
-
-.ml-card--disabled:hover {
-  opacity: 0.8;
-}
-
-/* ========== 空状态样式 ========== */
+/* ========== 空状态 ========== */
 .empty-state {
   grid-column: 1 / -1;
   display: flex;
@@ -850,6 +966,7 @@ onMounted(() => {
 
 .empty-text {
   font-size: 1rem;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-muted);
+  font-weight: 600;
 }
 </style>

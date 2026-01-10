@@ -175,28 +175,30 @@ onUnmounted(() => {
 <style scoped>
 .setup-auth h3 {
   font-size: 1.25rem;
-  font-weight: 600;
-  color: var(--k-color-text);
+  font-weight: 800;
+  color: var(--ml-text, #451a03);
   margin: 0 0 0.5rem 0;
 }
 
 .step-desc {
-  color: var(--k-color-text-description);
+  color: var(--ml-text-secondary, #92400e);
   margin: 0 0 1.5rem 0;
+  font-weight: 600;
 }
 
 .config-panel {
-  background: var(--k-card-bg);
+  background: var(--ml-surface, #ffffff);
   padding: 1.5rem;
-  border-radius: 12px;
-  border: 1px solid var(--k-color-border);
+  border-radius: var(--ml-radius, 12px);
+  border: 2px solid var(--ml-border-color, #451a03);
   margin-bottom: 1.5rem;
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  box-shadow: 3px 3px 0 var(--ml-border-color, #451a03);
 }
 
-/* 表单样式 imitation of ConfigRenderer */
+/* 表单样式 */
 .form-row {
   display: flex;
   align-items: flex-start;
@@ -205,9 +207,10 @@ onUnmounted(() => {
 .form-label {
   width: 120px;
   flex-shrink: 0;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-secondary, #92400e);
   padding-top: 6px;
   font-size: 0.9rem;
+  font-weight: 700;
 }
 
 .field-container {
@@ -223,26 +226,28 @@ onUnmounted(() => {
 
 .field-desc {
   font-size: 0.8rem;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-secondary, #92400e);
 }
 
 .field-desc code {
-  background: var(--k-color-bg-2);
-  padding: 0.1em 0.4em;
-  border-radius: 4px;
+  background: var(--ml-bg-alt, #fef3c7);
+  padding: 0.15em 0.5em;
+  border-radius: 6px;
   font-family: monospace;
+  border: 1px solid var(--ml-border-color, #451a03);
 }
 
-/* 验证码区域 */
+/* 验证码区域 - 波普风格 */
 .verify-section {
-  border-top: 1px solid var(--k-color-border);
+  border-top: 2px solid var(--ml-border-color, #451a03);
   padding-top: 1.5rem;
   margin-top: 0.5rem;
 }
 
 .verify-card {
-  background: var(--k-color-bg-2);
-  border-radius: 8px;
+  background: var(--ml-bg-alt, #fef3c7);
+  border-radius: var(--ml-radius, 12px);
+  border: 2px solid var(--ml-border-color, #451a03);
   padding: 1.5rem;
   display: flex;
   gap: 2rem;
@@ -255,26 +260,32 @@ onUnmounted(() => {
   align-items: center;
   gap: 0.5rem;
   padding-right: 2rem;
-  border-right: 1px dashed var(--k-color-border);
+  border-right: 2px dashed var(--ml-border-color, #451a03);
   min-width: 150px;
 }
 
 .code-label {
   font-size: 0.85rem;
-  color: var(--k-color-text-description);
+  font-weight: 700;
+  color: var(--ml-text-secondary, #92400e);
 }
 
 .code-value {
   font-size: 2rem;
   font-family: monospace;
-  font-weight: 700;
-  color: var(--k-color-active);
+  font-weight: 800;
+  color: var(--ml-primary-dark, #d97706);
   letter-spacing: 0.1em;
+  background: var(--ml-surface, #ffffff);
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--ml-radius-sm, 8px);
+  border: 2px solid var(--ml-border-color, #451a03);
 }
 
 .code-meta {
   font-size: 0.8rem;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-muted, #92400e);
+  font-weight: 600;
 }
 
 .verify-guide {
@@ -284,27 +295,30 @@ onUnmounted(() => {
 .verify-guide p {
   margin: 0 0 0.75rem 0;
   font-size: 0.9rem;
-  color: var(--k-color-text);
+  color: var(--ml-text, #451a03);
+  font-weight: 600;
 }
 
 .command-box {
-  background: var(--k-card-bg);
+  background: var(--ml-surface, #ffffff);
   padding: 0.75rem 1rem;
-  border-radius: 6px;
-  border: 1px solid var(--k-color-border);
+  border-radius: var(--ml-radius-sm, 8px);
+  border: 2px solid var(--ml-border-color, #451a03);
   display: inline-block;
   margin-bottom: 0.75rem;
+  box-shadow: 2px 2px 0 var(--ml-border-color, #451a03);
 }
 
 .command-box code {
   font-family: monospace;
-  color: var(--k-color-active);
-  font-weight: 600;
+  color: var(--ml-primary-dark, #d97706);
+  font-weight: 700;
+  font-size: 1rem;
 }
 
 .small-hint {
   font-size: 0.8rem !important;
-  color: var(--k-color-text-description) !important;
+  color: var(--ml-text-secondary, #92400e) !important;
   margin: 0 !important;
 }
 
@@ -313,6 +327,6 @@ onUnmounted(() => {
   justify-content: flex-end;
   gap: 0.75rem;
   padding-top: 1.5rem;
-  border-top: 1px solid var(--k-color-border);
+  border-top: 2px solid var(--ml-border-color, #451a03);
 }
 </style>

@@ -182,6 +182,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* 图片上传 - 波普风格 */
 .image-upload {
   display: flex;
   flex-direction: column;
@@ -201,11 +202,12 @@ onMounted(() => {
 .image-preview {
   width: 80px;
   height: 80px;
-  border-radius: 6px;
+  border-radius: var(--ml-radius-sm, 8px);
   overflow: hidden;
   position: relative;
-  border: 1px solid var(--k-color-border);
-  background-color: var(--k-color-bg-2);
+  border: 2px solid var(--ml-border-color, #451a03);
+  background-color: var(--ml-surface, #ffffff);
+  box-shadow: 2px 2px 0 var(--ml-border-color, #451a03);
 }
 
 .image-preview img {
@@ -217,7 +219,7 @@ onMounted(() => {
 .image-overlay {
   position: absolute;
   inset: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: rgba(69, 26, 3, 0.7);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -230,14 +232,15 @@ onMounted(() => {
 }
 
 .remove-btn {
-  background-color: var(--k-color-error, #f56c6c) !important;
+  background-color: var(--ml-error, #ef4444) !important;
   color: white !important;
-  border: none !important;
+  border: 2px solid var(--ml-border-color, #451a03) !important;
 }
 
 .image-name {
   font-size: 0.7rem;
-  color: var(--k-color-text-description);
+  font-weight: 600;
+  color: var(--ml-text-secondary, #92400e);
   margin-top: 0.25rem;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -246,20 +249,21 @@ onMounted(() => {
 }
 
 .upload-area {
-  border: 2px dashed var(--k-color-border);
-  border-radius: 8px;
+  border: 3px dashed var(--ml-border-color, #451a03);
+  border-radius: var(--ml-radius, 12px);
   padding: 1.5rem;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s ease;
-  background-color: var(--k-color-bg-2);
+  background-color: var(--ml-bg-alt, #fef3c7);
 }
 
 .upload-area:hover {
-  border-color: var(--k-color-active);
-  background-color: var(--k-color-bg-1);
+  border-color: var(--ml-primary, #fbbf24);
+  background-color: var(--ml-primary-light, #fde68a);
+  transform: translate(-1px, -1px);
 }
 
 .upload-content {
@@ -267,28 +271,31 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   gap: 0.5rem;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-secondary, #92400e);
 }
 
 .upload-icon {
   font-size: 1.5rem;
-  color: var(--k-color-active);
+  color: var(--ml-primary-dark, #d97706);
 }
 
 .upload-text {
   font-size: 0.85rem;
+  font-weight: 600;
 }
 
 .upload-loading {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-secondary, #92400e);
   font-size: 0.85rem;
+  font-weight: 600;
 }
 
 .loading-icon {
   animation: spin 1s linear infinite;
+  color: var(--ml-primary-dark, #d97706);
 }
 
 @keyframes spin {

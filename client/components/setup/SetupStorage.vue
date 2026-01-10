@@ -352,14 +352,15 @@ onMounted(loadConfig)
 <style scoped>
 .setup-storage h3 {
   font-size: 1.25rem;
-  font-weight: 600;
-  color: var(--k-color-text);
+  font-weight: 800;
+  color: var(--ml-text, #451a03);
   margin: 0 0 0.5rem 0;
 }
 
 .step-desc {
-  color: var(--k-color-text-description);
+  color: var(--ml-text-secondary, #92400e);
   margin: 0 0 1.5rem 0;
+  font-weight: 600;
 }
 
 .loading-state {
@@ -368,7 +369,7 @@ onMounted(loadConfig)
   justify-content: center;
   gap: 0.5rem;
   padding: 3rem;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-muted, #92400e);
 }
 
 .spin {
@@ -379,58 +380,60 @@ onMounted(loadConfig)
   to { transform: rotate(360deg); }
 }
 
-/* 警告框 */
+/* 警告框 - 波普风格 */
 .warning-box {
   display: flex;
   gap: 1rem;
   padding: 1rem;
   margin-top: 1rem;
-  background: color-mix(in srgb, var(--k-color-warning) 10%, transparent);
-  border: 1px solid var(--k-color-warning);
-  border-radius: 8px;
-  color: var(--k-color-warning);
+  background: var(--ml-warning-bg, #ffedd5);
+  border: 2px solid var(--ml-warning, #f97316);
+  border-radius: var(--ml-radius, 12px);
+  color: var(--ml-warning, #f97316);
 }
 
 .warning-box strong {
   display: block;
   margin-bottom: 0.25rem;
+  font-weight: 700;
 }
 
 .warning-box p {
   margin: 0;
   font-size: 0.9rem;
-  color: var(--k-color-text);
+  color: var(--ml-text, #451a03);
 }
 
 /* 操作按钮 */
 .step-actions {
   margin-top: 2rem;
   padding-top: 1.5rem;
-  border-top: 1px solid var(--k-color-border);
+  border-top: 2px solid var(--ml-border-color, #451a03);
   display: flex;
   justify-content: flex-end;
   gap: 0.75rem;
 }
 
-/* 测试结果 */
+/* 测试结果 - 波普风格 */
 .test-result {
   display: flex;
   gap: 1rem;
   padding: 1rem;
   margin-top: 1rem;
-  border-radius: 8px;
+  border-radius: var(--ml-radius, 12px);
+  border: 2px solid;
 }
 
 .test-result.success {
-  background: color-mix(in srgb, var(--k-color-success) 10%, transparent);
-  border: 1px solid var(--k-color-success);
-  color: var(--k-color-success);
+  background: var(--ml-success-bg, #dcfce7);
+  border-color: var(--ml-success, #10b981);
+  color: var(--ml-success, #10b981);
 }
 
 .test-result.error {
-  background: color-mix(in srgb, var(--k-color-danger) 10%, transparent);
-  border: 1px solid var(--k-color-danger);
-  color: var(--k-color-danger);
+  background: var(--ml-error-bg, #fee2e2);
+  border-color: var(--ml-error, #ef4444);
+  color: var(--ml-error, #ef4444);
 }
 
 .test-result-content {
@@ -440,17 +443,18 @@ onMounted(loadConfig)
 .test-result-content strong {
   display: block;
   margin-bottom: 0.25rem;
+  font-weight: 700;
 }
 
 .test-result-content p {
   margin: 0;
   font-size: 0.9rem;
-  color: var(--k-color-text);
+  color: var(--ml-text, #451a03);
 }
 
 .test-duration {
   margin-top: 0.25rem !important;
-  color: var(--k-color-text-description) !important;
+  color: var(--ml-text-secondary, #92400e) !important;
   font-size: 0.85rem !important;
 }
 
@@ -461,8 +465,9 @@ onMounted(loadConfig)
 
 .verify-desc {
   margin: 0 0 1.5rem 0;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-secondary, #92400e);
   font-size: 0.95rem;
+  font-weight: 600;
 }
 
 .upload-area {
@@ -472,9 +477,9 @@ onMounted(loadConfig)
   justify-content: center;
   gap: 1rem;
   min-height: 200px;
-  border: 2px dashed var(--k-color-border);
-  border-radius: 12px;
-  background: var(--k-color-bg-2);
+  border: 3px dashed var(--ml-border-color, #451a03);
+  border-radius: var(--ml-radius, 12px);
+  background: var(--ml-bg-alt, #fef3c7);
   cursor: pointer;
   transition: all 0.2s;
   position: relative;
@@ -482,30 +487,32 @@ onMounted(loadConfig)
 }
 
 .upload-area:hover {
-  border-color: var(--k-color-active);
-  background: color-mix(in srgb, var(--k-color-active) 5%, var(--k-color-bg-2));
+  border-color: var(--ml-primary, #fbbf24);
+  background: var(--ml-primary-light, #fde68a);
 }
 
 .upload-area.dragging {
-  border-color: var(--k-color-active);
-  background: color-mix(in srgb, var(--k-color-active) 10%, var(--k-color-bg-2));
+  border-color: var(--ml-primary, #fbbf24);
+  background: var(--ml-primary-light, #fde68a);
+  box-shadow: inset 0 0 20px rgba(251, 191, 36, 0.3);
 }
 
 .upload-area.has-image {
   border-style: solid;
-  border-color: var(--k-color-success);
+  border-color: var(--ml-success, #10b981);
 }
 
 .upload-icon {
   font-size: 2.5rem;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-muted, #92400e);
 }
 
 .preview-image {
   max-width: 100%;
   max-height: 200px;
   object-fit: contain;
-  border-radius: 8px;
+  border-radius: var(--ml-radius-sm, 8px);
+  border: 2px solid var(--ml-border-color, #451a03);
 }
 
 .image-overlay {
@@ -514,33 +521,34 @@ onMounted(loadConfig)
   left: 0;
   right: 0;
   padding: 0.75rem;
-  background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
+  background: linear-gradient(transparent, rgba(69, 26, 3, 0.8));
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
   color: white;
   font-size: 0.9rem;
+  font-weight: 600;
 }
 
 .image-overlay.success {
-  background: linear-gradient(transparent, rgba(0, 128, 0, 0.7));
+  background: linear-gradient(transparent, rgba(16, 185, 129, 0.85));
 }
 
 .image-overlay.error {
-  background: linear-gradient(transparent, rgba(180, 0, 0, 0.8));
+  background: linear-gradient(transparent, rgba(239, 68, 68, 0.85));
 }
 
 .image-overlay.loading {
-  background: linear-gradient(transparent, rgba(0, 0, 0, 0.6));
+  background: linear-gradient(transparent, rgba(69, 26, 3, 0.7));
 }
 
 .success-icon {
-  color: var(--k-color-success);
+  color: #dcfce7;
 }
 
 .error-icon {
-  color: #ff6b6b;
+  color: #fee2e2;
 }
 
 .upload-error {
@@ -549,11 +557,12 @@ onMounted(loadConfig)
   gap: 0.5rem;
   margin-top: 1rem;
   padding: 0.75rem 1rem;
-  background: color-mix(in srgb, var(--k-color-danger) 10%, transparent);
-  border: 1px solid var(--k-color-danger);
-  border-radius: 8px;
-  color: var(--k-color-danger);
+  background: var(--ml-error-bg, #fee2e2);
+  border: 2px solid var(--ml-error, #ef4444);
+  border-radius: var(--ml-radius-sm, 8px);
+  color: var(--ml-error, #ef4444);
   font-size: 0.9rem;
+  font-weight: 600;
 }
 
 .dialog-footer {

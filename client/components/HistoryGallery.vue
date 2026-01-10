@@ -1,8 +1,8 @@
 <template>
-  <div class="history-gallery" :class="{ collapsed }">
+  <div class="history-gallery pop-card no-hover" :class="{ collapsed }">
     <!-- 折叠状态的侧边条 -->
     <div v-if="collapsed" class="collapsed-bar" @click="collapsed = false">
-      <k-icon name="history"></k-icon>
+      <span class="collapsed-emoji">📜</span>
       <span class="collapsed-text">历史</span>
     </div>
 
@@ -14,25 +14,25 @@
           <span class="gallery-count" v-if="total > 0">{{ total }}</span>
         </div>
         <div class="header-actions">
-          <k-icon name="refresh" class="action-icon" :class="{ spinning: loading }" @click="refresh" title="刷新"></k-icon>
-          <k-icon name="chevron-right" class="action-icon" @click="collapsed = true" title="收起"></k-icon>
+          <span class="action-icon" :class="{ spinning: loading }" @click="refresh" title="刷新">🔄</span>
+          <span class="action-icon" @click="collapsed = true" title="收起">➡️</span>
         </div>
       </div>
 
       <!-- 未登录提示 -->
       <div v-if="!loggedIn" class="gallery-empty">
-        <k-icon name="user" class="empty-icon"></k-icon>
+        <span class="empty-icon">👤</span>
         <p>请登录查看历史</p>
       </div>
 
       <!-- 加载中 -->
       <div v-else-if="loading && tasks.length === 0" class="gallery-loading">
-        <div class="loader-small"></div>
+        <span class="spin">🔄</span>
       </div>
 
       <!-- 空状态 -->
       <div v-else-if="tasks.length === 0" class="gallery-empty">
-        <k-icon name="image" class="empty-icon"></k-icon>
+        <span class="empty-icon">🖼️</span>
         <p>暂无记录</p>
       </div>
 
@@ -69,7 +69,7 @@
                 @mouseleave="($event.target as HTMLVideoElement).pause()"
               />
               <div class="media-type-badge video-badge">
-                <k-icon name="play"></k-icon>
+                <span>▶️</span>
               </div>
               <div v-if="task.media.length > 1" class="more-images">
                 +{{ task.media.length - 1 }}
@@ -101,7 +101,7 @@
 
           <!-- 失败状态 -->
           <div v-else-if="task.status === 'failed'" class="task-failed">
-            <k-icon name="exclamation-triangle" class="failed-icon"></k-icon>
+            <span class="failed-icon">⚠️</span>
             <span>失败</span>
           </div>
 
@@ -117,7 +117,7 @@
 
         <!-- 加载更多 -->
         <div v-if="loading && tasks.length > 0" class="loading-more">
-          <div class="loader-small"></div>
+          <span class="spin">🔄</span>
         </div>
       </div>
     </div>
@@ -341,23 +341,24 @@ onUnmounted(() => {
 })
 </script>
 
-<style scoped>
+<style lang="scss">
+@use '../styles/theme.scss';
+</style>
+
+<style scoped lang="scss">
 .history-gallery {
   width: 240px;
   flex-shrink: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  background-color: var(--k-card-bg);
-  border-radius: 12px;
-  border: 1px solid var(--k-color-border);
   overflow: hidden;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .history-gallery:not(.collapsed):hover {
-  border-color: var(--k-color-active);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  border-color: var(--ml-primary);
+  box-shadow: var(--ml-shadow);
 }
 
 .history-gallery.collapsed {
@@ -372,25 +373,25 @@ onUnmounted(() => {
   justify-content: center;
   height: 100%;
   cursor: pointer;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-muted);
   transition: all 0.2s;
   gap: 0.5rem;
   padding: 1rem 0;
 }
 
 .collapsed-bar:hover {
-  color: var(--k-color-active);
-  background-color: var(--k-color-bg-2);
+  color: var(--ml-primary-dark);
+  background-color: var(--ml-cream);
 }
 
-.collapsed-bar .k-icon {
-  font-size: 1.1rem;
+.collapsed-emoji {
+  font-size: 1.2rem;
 }
 
 .collapsed-text {
   writing-mode: vertical-rl;
   font-size: 0.75rem;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 /* 展开的内容 */
@@ -404,7 +405,7 @@ onUnmounted(() => {
 
 .gallery-header {
   padding: 0.75rem;
-  border-bottom: 1px solid var(--k-color-border);
+  border-bottom: 2px solid var(--ml-border-color);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -419,17 +420,18 @@ onUnmounted(() => {
 
 .gallery-title {
   font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--k-color-text);
+  font-weight: 700;
+  color: var(--ml-text);
 }
 
 .gallery-count {
   font-size: 0.7rem;
-  background-color: var(--k-color-active);
-  color: white;
-  padding: 0.1rem 0.4rem;
+  background-color: var(--ml-primary);
+  color: var(--ml-text);
+  padding: 0.15rem 0.5rem;
   border-radius: 10px;
-  font-weight: 500;
+  font-weight: 700;
+  border: 2px solid var(--ml-border-color);
 }
 
 .header-actions {
@@ -440,16 +442,14 @@ onUnmounted(() => {
 
 .action-icon {
   padding: 0.3rem;
-  border-radius: 4px;
+  border-radius: 6px;
   cursor: pointer;
-  color: var(--k-color-text-description);
   transition: all 0.2s;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
 }
 
 .action-icon:hover {
-  color: var(--k-color-active);
-  background-color: var(--k-color-bg-2);
+  background-color: var(--ml-cream);
 }
 
 .action-icon.spinning {
@@ -471,7 +471,7 @@ onUnmounted(() => {
 }
 
 .gallery-list:hover {
-  scrollbar-color: var(--k-color-border) transparent;
+  scrollbar-color: var(--ml-border-color) transparent;
 }
 
 .gallery-list::-webkit-scrollbar {
@@ -489,18 +489,18 @@ onUnmounted(() => {
 }
 
 .gallery-list:hover::-webkit-scrollbar-thumb {
-  background-color: var(--k-color-border);
+  background-color: var(--ml-border-color);
 }
 
 /* 任务卡片 */
 .task-card {
-  background-color: var(--k-color-bg-2);
-  border-radius: 8px;
+  background-color: var(--ml-cream);
+  border-radius: var(--ml-radius);
   flex-shrink: 0;
   overflow: hidden;
   transition: all 0.2s;
   position: relative;
-  border: 1px solid var(--k-color-border);
+  border: 2px solid var(--ml-border-color);
 }
 
 .task-card.clickable {
@@ -508,28 +508,29 @@ onUnmounted(() => {
 }
 
 .task-card.clickable:hover {
-  background-color: var(--k-color-bg-1);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  border-color: var(--k-color-active);
+  background-color: var(--ml-surface);
+  box-shadow: var(--ml-shadow-sm);
+  border-color: var(--ml-primary);
+  transform: translateY(-2px);
 }
 
 /* 处理中状态的卡片 */
 .task-card:has(.task-processing) {
-  border-color: var(--k-color-warning, #e6a23c);
-  background-color: rgba(230, 162, 60, 0.05);
+  border-color: var(--ml-warning);
+  background-color: rgba(251, 191, 36, 0.1);
 }
 
 /* 失败状态的卡片 */
 .task-card:has(.task-failed) {
-  border-color: var(--k-color-error, #f56c6c);
-  background-color: rgba(245, 108, 108, 0.05);
+  border-color: var(--ml-error);
+  background-color: rgba(220, 38, 38, 0.05);
 }
 
-/* 图片区域 - 单张图片，完整显示不裁剪 */
+/* 图片区域 */
 .task-image-wrapper {
   position: relative;
   width: 100%;
-  background-color: var(--k-color-bg-1);
+  background-color: var(--ml-cream);
 }
 
 .task-image {
@@ -542,11 +543,12 @@ onUnmounted(() => {
   position: absolute;
   right: 6px;
   top: 6px;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(69, 26, 3, 0.8);
   color: white;
   font-size: 0.7rem;
-  padding: 0.15rem 0.4rem;
-  border-radius: 4px;
+  font-weight: 600;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
 }
 
 .audio-more {
@@ -558,7 +560,7 @@ onUnmounted(() => {
 .task-video-wrapper {
   position: relative;
   width: 100%;
-  background-color: var(--k-color-bg-1);
+  background-color: var(--ml-cream);
 }
 
 .task-video {
@@ -571,18 +573,17 @@ onUnmounted(() => {
   position: absolute;
   left: 6px;
   top: 6px;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.7rem;
+  font-size: 0.8rem;
 }
 
 .video-badge {
-  background: rgba(0, 0, 0, 0.6);
-  color: white;
+  background: rgba(69, 26, 3, 0.7);
 }
 
 /* 音频区域 */
@@ -598,7 +599,7 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   gap: 0.5rem;
-  background: linear-gradient(135deg, rgba(230, 162, 60, 0.08) 0%, rgba(230, 162, 60, 0.02) 100%);
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.15) 0%, rgba(251, 191, 36, 0.05) 100%);
 }
 
 .processing-animation {
@@ -609,7 +610,7 @@ onUnmounted(() => {
 .processing-animation .dot {
   width: 8px;
   height: 8px;
-  background-color: var(--k-color-warning, #e6a23c);
+  background-color: var(--ml-warning);
   border-radius: 50%;
   animation: bounce 1.4s ease-in-out infinite both;
 }
@@ -624,8 +625,8 @@ onUnmounted(() => {
 
 .processing-text {
   font-size: 0.75rem;
-  color: var(--k-color-warning, #e6a23c);
-  font-weight: 500;
+  color: var(--ml-warning);
+  font-weight: 600;
 }
 
 /* 失败状态 */
@@ -635,18 +636,17 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   gap: 0.5rem;
-  color: var(--k-color-error, #f56c6c);
-  background: linear-gradient(135deg, rgba(245, 108, 108, 0.08) 0%, rgba(245, 108, 108, 0.02) 100%);
+  color: var(--ml-error);
+  background: linear-gradient(135deg, rgba(220, 38, 38, 0.08) 0%, rgba(220, 38, 38, 0.02) 100%);
 }
 
 .failed-icon {
   font-size: 1.5rem;
-  opacity: 0.8;
 }
 
 .task-failed span {
   font-size: 0.75rem;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 /* 任务信息 */
@@ -656,7 +656,7 @@ onUnmounted(() => {
 
 .task-prompt {
   font-size: 0.75rem;
-  color: var(--k-color-text);
+  color: var(--ml-text);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -671,7 +671,8 @@ onUnmounted(() => {
   align-items: center;
   margin-top: 0.35rem;
   font-size: 0.65rem;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-muted);
+  font-weight: 500;
 }
 
 /* 空状态和加载中 */
@@ -682,18 +683,19 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-muted);
   padding: 2rem 1rem;
   gap: 0.5rem;
 }
 
 .empty-icon {
   font-size: 2rem;
-  opacity: 0.3;
+  opacity: 0.5;
 }
 
 .gallery-empty p {
   font-size: 0.8rem;
+  font-weight: 600;
   margin: 0;
 }
 
@@ -703,12 +705,8 @@ onUnmounted(() => {
   padding: 0.5rem;
 }
 
-.loader-small {
-  border: 2px solid var(--k-color-bg-1);
-  border-top: 2px solid var(--k-color-active);
-  border-radius: 50%;
-  width: 20px;
-  height: 20px;
+.spin {
+  font-size: 1.2rem;
   animation: spin 1s linear infinite;
 }
 

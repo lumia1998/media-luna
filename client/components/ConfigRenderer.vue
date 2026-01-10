@@ -570,24 +570,25 @@ const getGroupedOptions = (field: ConfigField): OptionGroup[] => {
   padding: 0.5rem;
   margin: -0.5rem;
   margin-bottom: 0.75rem;
-  border-radius: 8px;
+  border-radius: var(--ml-radius-sm, 8px);
 }
 
 .form-row.highlight {
-  background-color: var(--k-color-active-bg, rgba(64, 158, 255, 0.1));
+  background-color: var(--ml-primary-light, #fde68a);
 }
 
 .form-label {
   width: 120px;
   flex-shrink: 0;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-secondary, #92400e);
   padding-top: 6px;
   font-size: 0.9rem;
+  font-weight: 700;
 }
 
 .form-label.required::after {
   content: '*';
-  color: var(--k-color-error, #f56c6c);
+  color: var(--ml-error, #ef4444);
   margin-left: 4px;
 }
 
@@ -600,7 +601,7 @@ const getGroupedOptions = (field: ConfigField): OptionGroup[] => {
 
 .field-desc {
   font-size: 0.8rem;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-secondary, #92400e);
   margin-top: 0.25rem;
 }
 
@@ -619,16 +620,16 @@ const getGroupedOptions = (field: ConfigField): OptionGroup[] => {
   opacity: 1;
 }
 
-/* 快速导航 - 卡片式设计 */
+/* 快速导航 - 波普卡片风格 */
 .quick-nav {
   position: fixed;
   right: 24px;
   top: 120px;
   z-index: 100;
-  background: var(--k-card-bg, #fff);
-  border: 1px solid var(--k-color-border, #e4e7ed);
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  background: var(--ml-surface, #ffffff);
+  border: 2px solid var(--ml-border-color, #451a03);
+  border-radius: var(--ml-radius, 12px);
+  box-shadow: 4px 4px 0 var(--ml-border-color, #451a03);
   min-width: 180px;
   max-width: 220px;
   overflow: hidden;
@@ -646,8 +647,8 @@ const getGroupedOptions = (field: ConfigField): OptionGroup[] => {
   justify-content: space-between;
   padding: 12px 14px;
   cursor: pointer;
-  background: var(--k-color-bg-2, #f5f7fa);
-  border-bottom: 1px solid var(--k-color-border, #e4e7ed);
+  background: var(--ml-bg-alt, #fef3c7);
+  border-bottom: 2px solid var(--ml-border-color, #451a03);
   transition: background 0.15s;
 }
 
@@ -656,7 +657,7 @@ const getGroupedOptions = (field: ConfigField): OptionGroup[] => {
 }
 
 .nav-header:hover {
-  background: var(--k-color-fill-light, #ebeef5);
+  background: var(--ml-primary-light, #fde68a);
 }
 
 .nav-header-left {
@@ -667,19 +668,19 @@ const getGroupedOptions = (field: ConfigField): OptionGroup[] => {
 
 .nav-icon {
   font-size: 16px;
-  color: var(--k-color-active, #409eff);
+  color: var(--ml-primary-dark, #d97706);
 }
 
 .nav-title {
   font-size: 13px;
-  font-weight: 600;
-  color: var(--k-color-text, #303133);
+  font-weight: 700;
+  color: var(--ml-text, #451a03);
   letter-spacing: 0.02em;
 }
 
 .toggle-icon {
   font-size: 14px;
-  color: var(--k-color-text-description, #909399);
+  color: var(--ml-text-muted, #92400e);
   transition: transform 0.2s;
 }
 
@@ -698,7 +699,7 @@ const getGroupedOptions = (field: ConfigField): OptionGroup[] => {
 }
 
 .nav-list:hover {
-  scrollbar-color: var(--k-color-border) transparent;
+  scrollbar-color: var(--ml-border-color, #451a03) transparent;
 }
 
 .nav-list::-webkit-scrollbar {
@@ -715,7 +716,7 @@ const getGroupedOptions = (field: ConfigField): OptionGroup[] => {
 }
 
 .nav-list:hover::-webkit-scrollbar-thumb {
-  background-color: var(--k-color-border);
+  background-color: var(--ml-border-color, #451a03);
 }
 
 .nav-item {
@@ -724,37 +725,38 @@ const getGroupedOptions = (field: ConfigField): OptionGroup[] => {
   gap: 8px;
   padding: 8px 10px;
   font-size: 13px;
-  color: var(--k-color-text, #303133);
-  border-radius: 6px;
+  font-weight: 600;
+  color: var(--ml-text, #451a03);
+  border-radius: var(--ml-radius-sm, 8px);
   cursor: pointer;
   transition: all 0.15s;
 }
 
 .nav-item:hover {
-  background: var(--k-color-fill-light, #f5f7fa);
-  color: var(--k-color-active, #409eff);
+  background: var(--ml-cream, #fffbeb);
+  color: var(--ml-primary-dark, #d97706);
 }
 
 .nav-item:hover .nav-item-dot {
-  background: var(--k-color-active, #409eff);
+  background: var(--ml-primary, #fbbf24);
   transform: scale(1.2);
 }
 
 .nav-item.active {
-  background: var(--k-color-active-bg, rgba(64, 158, 255, 0.1));
-  color: var(--k-color-active, #409eff);
+  background: var(--ml-primary-light, #fde68a);
+  color: var(--ml-text, #451a03);
 }
 
 .nav-item.active .nav-item-dot {
-  background: var(--k-color-active, #409eff);
-  box-shadow: 0 0 0 3px rgba(64, 158, 255, 0.2);
+  background: var(--ml-primary-dark, #d97706);
+  box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.4);
 }
 
 .nav-item-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--k-color-text-description, #c0c4cc);
+  background: var(--ml-text-muted, #92400e);
   flex-shrink: 0;
   transition: all 0.15s;
 }

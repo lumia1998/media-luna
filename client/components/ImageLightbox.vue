@@ -8,18 +8,18 @@
             <div class="lightbox-media-area" @click.self="close">
               <!-- 关闭按钮 -->
               <button class="close-btn" @click="close" title="关闭 (Esc)">
-                <k-icon name="times"></k-icon>
+                <span>✕</span>
               </button>
 
               <!-- 加载中 -->
               <div v-if="loading" class="loading-state">
-                <k-icon name="sync" class="spin"></k-icon>
+                <span class="spin">🔄</span>
               </div>
 
               <template v-else>
                 <!-- 多媒体时的导航 -->
                 <button v-if="mediaList.length > 1" class="nav-btn prev" @click.stop="prevMedia" title="上一个">
-                  <k-icon name="chevron-left"></k-icon>
+                  <span>◀</span>
                 </button>
 
                 <!-- 图片 -->
@@ -45,7 +45,7 @@
                 </div>
 
                 <button v-if="mediaList.length > 1" class="nav-btn next" @click.stop="nextMedia" title="下一个">
-                  <k-icon name="chevron-right"></k-icon>
+                  <span>▶</span>
                 </button>
 
                 <!-- 媒体计数器 -->
@@ -60,7 +60,7 @@
               <div class="sidebar-header">
                 <div class="info-title">{{ sidebarTitle }}</div>
                 <button class="header-close-btn" @click="close" title="关闭">
-                  <k-icon name="times"></k-icon>
+                  <span>✕</span>
                 </button>
               </div>
 
@@ -78,13 +78,13 @@
                       @error="($event.target as HTMLImageElement).style.display = 'none'"
                     />
                     <div v-else class="user-avatar-placeholder">
-                      <k-icon name="user"></k-icon>
+                      <span>👤</span>
                     </div>
                     <span class="user-name">{{ userInfo?.name || `UID: ${taskData.uid}` }}</span>
                   </div>
                   <div class="user-info" v-else>
                     <div class="user-avatar-placeholder">
-                      <k-icon name="user"></k-icon>
+                      <span>👤</span>
                     </div>
                     <span class="user-name">匿名用户</span>
                   </div>
@@ -129,16 +129,14 @@
               </div>
 
               <div class="sidebar-footer">
-                <button class="action-btn primary" @click="openOriginal">
-                  <k-icon name="external-link"></k-icon>
-                  {{ currentMedia?.kind === 'audio' ? '打开音频' : currentMedia?.kind === 'video' ? '打开视频' : '查看原图' }}
+                <button class="pop-btn primary" @click="openOriginal">
+                  🔗 {{ currentMedia?.kind === 'audio' ? '打开音频' : currentMedia?.kind === 'video' ? '打开视频' : '查看原图' }}
                 </button>
-                <button class="action-btn secondary" @click="downloadMedia">
-                  <k-icon name="download"></k-icon>
-                  下载
+                <button class="pop-btn" @click="downloadMedia">
+                  💾 下载
                 </button>
-                <button v-if="canUpload" class="action-btn upload" @click="handleUpload" title="上传到云端">
-                  <k-icon name="upload"></k-icon>
+                <button v-if="canUpload" class="pop-btn" @click="handleUpload" title="上传到云端">
+                  ⬆️
                 </button>
               </div>
             </div>
@@ -164,7 +162,6 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
-import { message } from '@koishijs/client'
 import { taskApi, userApi } from '../api'
 import type { TaskData, AssetKind } from '../types'
 import AudioPlayer from './AudioPlayer.vue'
@@ -349,7 +346,7 @@ const nextMedia = () => {
 const copyPrompt = () => {
   if (displayPrompt.value) {
     navigator.clipboard.writeText(displayPrompt.value)
-    message.success('已复制提示词')
+    alert('已复制提示词')
   }
 }
 
@@ -383,7 +380,7 @@ const downloadMedia = async () => {
     // 如果 fetch 失败（如 CORS 问题），回退到直接打开
     console.warn('Download failed, opening in new tab:', e)
     window.open(currentMedia.value.url, '_blank')
-    message.warning('无法直接下载，已在新标签页打开')
+    alert('无法直接下载，已在新标签页打开')
   }
 }
 
@@ -429,11 +426,15 @@ const handleUpload = () => {
 }
 </script>
 
-<style scoped>
+<style lang="scss">
+@use '../styles/theme.scss';
+</style>
+
+<style scoped lang="scss">
 .lightbox-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.9);
+  background: rgba(69, 26, 3, 0.9);
   backdrop-filter: blur(8px);
   z-index: 9999;
   display: flex;
@@ -447,11 +448,12 @@ const handleUpload = () => {
   max-width: 1100px;
   height: 90vh;
   max-height: 850px;
-  background: var(--k-card-bg);
-  border-radius: 12px;
+  background: var(--ml-surface);
+  border-radius: var(--ml-radius);
+  border: 3px solid var(--ml-border-color);
   overflow: hidden;
   position: relative;
-  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5);
+  box-shadow: 8px 8px 0 var(--ml-border-color);
 }
 
 .lightbox-content {
@@ -462,7 +464,7 @@ const handleUpload = () => {
 /* 媒体区域 */
 .lightbox-media-area {
   flex: 1;
-  background: #0a0a0a;
+  background: #1a0a03;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -504,21 +506,22 @@ const handleUpload = () => {
 
 .spin {
   animation: spin 1s linear infinite;
+  display: inline-block;
 }
 
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
 
-/* 关闭按钮 - 图片区域左上角 */
+/* 关闭按钮 */
 .close-btn {
   position: absolute;
   top: 16px;
   left: 16px;
   z-index: 10;
-  background: rgba(255, 255, 255, 0.15);
-  border: none;
-  color: white;
+  background: rgba(251, 191, 36, 0.9);
+  border: 2px solid var(--ml-border-color);
+  color: var(--ml-text);
   width: 40px;
   height: 40px;
   border-radius: 50%;
@@ -528,10 +531,12 @@ const handleUpload = () => {
   justify-content: center;
   transition: all 0.2s;
   font-size: 1.1rem;
+  font-weight: 700;
+  box-shadow: 2px 2px 0 var(--ml-border-color);
 }
 
 .close-btn:hover {
-  background: rgba(255, 255, 255, 0.25);
+  background: var(--ml-primary);
   transform: scale(1.05);
 }
 
@@ -540,9 +545,9 @@ const handleUpload = () => {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  background: rgba(255, 255, 255, 0.15);
-  border: none;
-  color: white;
+  background: rgba(251, 191, 36, 0.9);
+  border: 2px solid var(--ml-border-color);
+  color: var(--ml-text);
   width: 48px;
   height: 48px;
   border-radius: 50%;
@@ -551,11 +556,13 @@ const handleUpload = () => {
   align-items: center;
   justify-content: center;
   transition: all 0.2s;
-  font-size: 1.5rem;
+  font-size: 1.2rem;
+  font-weight: 700;
+  box-shadow: 2px 2px 0 var(--ml-border-color);
 }
 
 .nav-btn:hover {
-  background: rgba(255, 255, 255, 0.25);
+  background: var(--ml-primary);
   transform: translateY(-50%) scale(1.08);
 }
 
@@ -572,42 +579,43 @@ const handleUpload = () => {
   bottom: 16px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(69, 26, 3, 0.8);
   color: white;
-  padding: 6px 14px;
-  border-radius: 20px;
+  padding: 8px 16px;
+  border-radius: var(--ml-radius);
   font-size: 0.85rem;
-  font-weight: 500;
+  font-weight: 700;
+  border: 2px solid var(--ml-border-color);
 }
 
 /* 侧边栏 */
 .lightbox-sidebar {
   width: 280px;
-  background: var(--k-card-bg);
+  background: var(--ml-surface);
   display: flex;
   flex-direction: column;
-  border-left: 1px solid var(--k-color-border);
+  border-left: 3px solid var(--ml-border-color);
   flex-shrink: 0;
 }
 
 .sidebar-header {
   padding: 14px 16px;
-  border-bottom: 1px solid var(--k-color-border);
+  border-bottom: 2px solid var(--ml-border-color);
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
 .info-title {
-  font-weight: 600;
+  font-weight: 800;
   font-size: 0.95rem;
-  color: var(--k-color-text);
+  color: var(--ml-text);
 }
 
 .header-close-btn {
   background: transparent;
   border: none;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-muted);
   width: 28px;
   height: 28px;
   border-radius: 6px;
@@ -617,24 +625,24 @@ const handleUpload = () => {
   justify-content: center;
   transition: all 0.2s;
   font-size: 0.9rem;
+  font-weight: 700;
 }
 
 .header-close-btn:hover {
-  background: var(--k-color-bg-2);
-  color: var(--k-color-text);
+  background: var(--ml-cream);
+  color: var(--ml-text);
 }
 
 .sidebar-body {
   flex: 1;
   overflow-y: auto;
   padding: 16px;
-  /* 隐藏式滚动条 */
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
 }
 
 .sidebar-body:hover {
-  scrollbar-color: var(--k-color-border) transparent;
+  scrollbar-color: var(--ml-border-color) transparent;
 }
 
 .sidebar-body::-webkit-scrollbar {
@@ -651,7 +659,7 @@ const handleUpload = () => {
 }
 
 .sidebar-body:hover::-webkit-scrollbar-thumb {
-  background-color: var(--k-color-border);
+  background-color: var(--ml-border-color);
 }
 
 .info-block {
@@ -668,8 +676,8 @@ const handleUpload = () => {
   align-items: center;
   margin-bottom: 6px;
   font-size: 0.7rem;
-  font-weight: 600;
-  color: var(--k-color-text-description);
+  font-weight: 700;
+  color: var(--ml-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -677,26 +685,27 @@ const handleUpload = () => {
 .copy-btn {
   background: transparent;
   border: none;
-  color: var(--k-color-active);
+  color: var(--ml-primary-dark);
   cursor: pointer;
   font-size: 0.7rem;
   padding: 2px 8px;
   border-radius: 4px;
   transition: background 0.2s;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .copy-btn:hover {
-  background: var(--k-color-bg-2);
+  background: var(--ml-cream);
 }
 
 .prompt-content {
   font-size: 0.82rem;
   line-height: 1.5;
-  color: var(--k-color-text);
-  background: var(--k-color-bg-2);
+  color: var(--ml-text);
+  background: var(--ml-cream);
   padding: 10px 12px;
-  border-radius: 6px;
+  border-radius: var(--ml-radius);
+  border: 2px solid var(--ml-border-color);
   white-space: pre-wrap;
   word-break: break-word;
   max-height: 300px;
@@ -704,13 +713,14 @@ const handleUpload = () => {
 }
 
 .prompt-content.empty {
-  color: var(--k-color-text-description);
+  color: var(--ml-text-muted);
   font-style: italic;
 }
 
 .info-value {
   font-size: 0.85rem;
-  color: var(--k-color-text);
+  color: var(--ml-text);
+  font-weight: 500;
 }
 
 /* 用户信息 */
@@ -719,8 +729,9 @@ const handleUpload = () => {
   align-items: center;
   gap: 10px;
   padding: 8px 10px;
-  background: var(--k-color-bg-2);
-  border-radius: 6px;
+  background: var(--ml-cream);
+  border-radius: var(--ml-radius);
+  border: 2px solid var(--ml-border-color);
 }
 
 .user-avatar {
@@ -729,82 +740,39 @@ const handleUpload = () => {
   border-radius: 50%;
   object-fit: cover;
   flex-shrink: 0;
+  border: 2px solid var(--ml-border-color);
 }
 
 .user-avatar-placeholder {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: var(--k-color-bg-1);
+  background: var(--ml-surface);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--k-color-text-description);
   flex-shrink: 0;
+  border: 2px solid var(--ml-border-color);
+  font-size: 1rem;
 }
 
 .user-name {
   font-size: 0.9rem;
-  color: var(--k-color-text);
-  font-weight: 500;
+  color: var(--ml-text);
+  font-weight: 600;
 }
 
 .sidebar-footer {
   padding: 12px 16px;
-  border-top: 1px solid var(--k-color-border);
+  border-top: 2px solid var(--ml-border-color);
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
-.action-btn {
+.sidebar-footer .pop-btn {
   flex: 1;
-  padding: 10px 12px;
-  border-radius: 8px;
-  border: none;
-  cursor: pointer;
-  font-size: 0.8rem;
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  transition: all 0.2s;
-}
-
-.action-btn.primary {
-  background: var(--k-color-active);
-  color: white;
-}
-
-.action-btn.primary:hover {
-  filter: brightness(1.1);
-  transform: translateY(-1px);
-}
-
-.action-btn.secondary {
-  background: var(--k-color-bg-2);
-  color: var(--k-color-text);
-  border: 1px solid var(--k-color-border);
-}
-
-.action-btn.secondary:hover {
-  background: var(--k-color-bg-1);
-  border-color: var(--k-color-active);
-  color: var(--k-color-active);
-}
-
-.action-btn.upload {
-  background: var(--k-color-bg-2);
-  color: var(--k-color-text);
-  border: 1px solid var(--k-color-border);
-  flex: 0 0 auto;
-  padding: 10px 14px;
-}
-
-.action-btn.upload:hover {
-  background: var(--k-color-primary, #409eff);
-  border-color: var(--k-color-primary, #409eff);
-  color: white;
+  min-width: 0;
 }
 
 /* 过渡动画 */
@@ -828,6 +796,8 @@ const handleUpload = () => {
     height: 100%;
     max-height: none;
     border-radius: 0;
+    border: none;
+    box-shadow: none;
   }
 
   .lightbox-content {
@@ -841,7 +811,7 @@ const handleUpload = () => {
   .lightbox-sidebar {
     width: 100%;
     border-left: none;
-    border-top: 1px solid var(--k-color-border);
+    border-top: 3px solid var(--ml-border-color);
   }
 
   .close-btn {

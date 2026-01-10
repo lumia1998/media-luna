@@ -1,374 +1,362 @@
 <template>
   <div class="generate-layout">
-        <!-- 左侧配置区 -->
-        <div class="config-panel">
-          <k-card class="config-card ml-scrollbar">
-            <div class="form-section">
-              <div class="section-title">
-                <k-icon name="settings"></k-icon> 基础配置
-              </div>
+    <!-- 左侧配置区 -->
+    <div class="config-panel">
+      <div class="config-card pop-card pop-scrollbar">
+        <div class="form-section">
+          <div class="section-title">
+            <span class="section-emoji">⚙️</span> 基础配置
+          </div>
 
-              <!-- 渠道选择触发器 -->
-              <div class="form-item">
-                <div class="label">生成渠道</div>
-                <div
-                  class="selection-trigger"
-                  :class="{ active: pickerMode === 'channel', selected: !!selectedChannel }"
-                  @click="togglePickerMode('channel')"
-                >
-                  <template v-if="selectedChannel">
-                    <div class="selection-info">
-                      <img
-                        v-if="getConnectorIconUrl(selectedChannel.connectorId)"
-                        :src="getConnectorIconUrl(selectedChannel.connectorId)"
-                        class="selection-icon"
-                      />
-                      <component v-else :is="icons.channels" class="selection-icon-fallback"></component>
-                      <span class="selection-name">{{ selectedChannel.name }}</span>
-                    </div>
-                    <k-icon name="times" class="clear-btn" @click.stop="clearChannel" title="清除"></k-icon>
-                  </template>
-                  <template v-else>
-                    <component :is="icons.channels" class="placeholder-icon"></component>
-                    <span class="placeholder-text">点击选择渠道</span>
-                    <k-icon name="chevron-right" class="arrow-icon"></k-icon>
-                  </template>
-                </div>
-              </div>
-
-              <!-- 预设选择触发器 -->
-              <div class="form-item">
-                <div class="label">预设模板 <span class="optional">(可选)</span></div>
-                <div
-                  class="selection-trigger"
-                  :class="{ active: pickerMode === 'preset', selected: !!selectedPreset }"
-                  @click="togglePickerMode('preset')"
-                >
-                  <template v-if="selectedPreset">
-                    <div class="selection-info">
-                      <img
-                        v-if="selectedPreset.thumbnail"
-                        :src="selectedPreset.thumbnail"
-                        class="selection-thumb"
-                      />
-                      <component v-else :is="icons.presets" class="selection-icon-fallback"></component>
-                      <span class="selection-name">{{ selectedPreset.name }}</span>
-                    </div>
-                    <k-icon name="times" class="clear-btn" @click.stop="clearPreset" title="清除"></k-icon>
-                  </template>
-                  <template v-else>
-                    <component :is="icons.presets" class="placeholder-icon"></component>
-                    <span class="placeholder-text">点击选择预设</span>
-                    <k-icon name="chevron-right" class="arrow-icon"></k-icon>
-                  </template>
-                </div>
-              </div>
-            </div>
-
-            <div class="form-section flex-grow">
-              <div class="section-title">
-                 <k-icon name="edit"></k-icon> 提示词
-              </div>
-              <el-input
-                v-model="form.prompt"
-                type="textarea"
-                :rows="8"
-                placeholder="输入提示词，支持自然语言描述..."
-                resize="none"
-                class="prompt-input"
-              ></el-input>
-            </div>
-
-            <!-- 文件上传区域 -->
-            <div class="form-section">
-              <div class="section-title">
-                <k-icon name="image"></k-icon> 参考图片
-              </div>
-              <div class="upload-area">
-                <!-- 已上传的图片列表 -->
-                <div class="upload-list" v-if="fileList.length > 0">
-                  <div v-for="(file, index) in fileList" :key="file.uid" class="upload-item">
-                    <img :src="file.url" class="upload-thumb" />
-                    <div class="upload-overlay" @click="removeFile(index)">
-                      <k-icon name="delete"></k-icon>
-                    </div>
-                  </div>
-                </div>
-                <!-- 上传按钮 -->
-                <div
-                  class="upload-trigger"
-                  @click="triggerUpload"
-                  @dragover.prevent
-                  @drop.prevent="handleDrop"
-                >
-                  <input
-                    ref="fileInput"
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    style="display: none"
-                    @change="handleFileSelect"
-                  />
-                  <k-icon name="add" class="upload-icon"></k-icon>
-                </div>
-                <div class="upload-tip">点击或拖拽上传参考图片</div>
-              </div>
-            </div>
-
-            <div class="form-actions">
-              <k-button solid type="primary" :loading="generating" @click="generate" class="generate-btn">
-                <template #icon><k-icon name="magic"></k-icon></template>
-                开始生成
-              </k-button>
-            </div>
-          </k-card>
-        </div>
-
-        <!-- 中间区域 -->
-        <div class="preview-panel ml-scrollbar">
-          <!-- 渠道选择列表 -->
-          <div v-if="pickerMode === 'channel'" class="picker-view">
-            <div class="picker-header">
-              <div class="picker-title-row">
-                <div class="picker-title">
-                  <k-icon name="link"></k-icon>
-                  <span>选择渠道</span>
-                  <span class="picker-count">{{ filteredChannels.length }}</span>
-                </div>
-                <k-button size="mini" @click="pickerMode = null" class="picker-close-btn">
-                  <template #icon><k-icon name="times"></k-icon></template>
-                </k-button>
-              </div>
-              <div class="picker-filters">
-                <el-input
-                  v-model="channelSearch"
-                  placeholder="搜索..."
-                  size="small"
-                  clearable
-                  class="picker-search"
-                >
-                  <template #prefix><k-icon name="search"></k-icon></template>
-                </el-input>
-                <el-select
-                  v-model="channelConnectorFilter"
-                  placeholder="全部连接器"
-                  clearable
-                  size="small"
-                  class="picker-filter"
-                >
-                  <el-option
-                    v-for="conn in connectors"
-                    :key="conn.id"
-                    :label="conn.name"
-                    :value="conn.id"
-                  />
-                </el-select>
-              </div>
-            </div>
-            <div class="picker-grid">
-              <div
-                v-for="channel in filteredChannels"
-                :key="channel.id"
-                class="picker-card"
-                :class="{ selected: form.channel === channel.id }"
-                @click="selectChannel(channel)"
-              >
-                <div class="picker-card-icon">
+          <!-- 渠道选择触发器 -->
+          <div class="form-item">
+            <div class="label">生成渠道</div>
+            <div
+              class="selection-trigger"
+              :class="{ active: pickerMode === 'channel', selected: !!selectedChannel }"
+              @click="togglePickerMode('channel')"
+            >
+              <template v-if="selectedChannel">
+                <div class="selection-info">
                   <img
-                    v-if="getConnectorIconUrl(channel.connectorId)"
-                    :src="getConnectorIconUrl(channel.connectorId)"
+                    v-if="getConnectorIconUrl(selectedChannel.connectorId)"
+                    :src="getConnectorIconUrl(selectedChannel.connectorId)"
+                    class="selection-icon"
                   />
-                  <k-icon v-else name="link"></k-icon>
+                  <component v-else :is="icons.channels" class="selection-icon-fallback"></component>
+                  <span class="selection-name">{{ selectedChannel.name }}</span>
                 </div>
-                <div class="picker-card-name">{{ channel.name }}</div>
-                <k-icon v-if="form.channel === channel.id" name="check" class="picker-card-check"></k-icon>
-              </div>
-              <div v-if="filteredChannels.length === 0" class="picker-empty">
-                <k-icon name="search"></k-icon>
-                <span>没有找到匹配的渠道</span>
-              </div>
+                <span class="clear-btn" @click.stop="clearChannel" title="清除">✕</span>
+              </template>
+              <template v-else>
+                <component :is="icons.channels" class="placeholder-icon"></component>
+                <span class="placeholder-text">点击选择渠道</span>
+                <span class="arrow-icon">→</span>
+              </template>
             </div>
           </div>
 
-          <!-- 预设选择列表 -->
-          <div v-else-if="pickerMode === 'preset'" class="picker-view">
-            <div class="picker-header">
-              <div class="picker-title-row">
-                <div class="picker-title">
-                  <k-icon name="bookmark"></k-icon>
-                  <span>选择预设</span>
-                  <span class="picker-count">{{ filteredPresetsCount }}</span>
+          <!-- 预设选择触发器 -->
+          <div class="form-item">
+            <div class="label">预设模板 <span class="optional">(可选)</span></div>
+            <div
+              class="selection-trigger"
+              :class="{ active: pickerMode === 'preset', selected: !!selectedPreset }"
+              @click="togglePickerMode('preset')"
+            >
+              <template v-if="selectedPreset">
+                <div class="selection-info">
+                  <img
+                    v-if="selectedPreset.thumbnail"
+                    :src="selectedPreset.thumbnail"
+                    class="selection-thumb"
+                  />
+                  <component v-else :is="icons.presets" class="selection-icon-fallback"></component>
+                  <span class="selection-name">{{ selectedPreset.name }}</span>
                 </div>
-                <k-button size="mini" @click="pickerMode = null" class="picker-close-btn">
-                  <template #icon><k-icon name="times"></k-icon></template>
-                </k-button>
-              </div>
-              <div class="picker-filters">
-                <el-input
-                  v-model="presetSearch"
-                  placeholder="搜索..."
-                  size="small"
-                  clearable
-                  class="picker-search"
-                >
-                  <template #prefix><k-icon name="search"></k-icon></template>
-                </el-input>
-                <el-select
-                  v-model="presetSourceFilter"
-                  placeholder="全部来源"
-                  clearable
-                  size="small"
-                  class="picker-filter"
-                >
-                  <el-option label="本地" value="user" />
-                  <el-option label="远程" value="api" />
-                </el-select>
-              </div>
+                <span class="clear-btn" @click.stop="clearPreset" title="清除">✕</span>
+              </template>
+              <template v-else>
+                <component :is="icons.presets" class="placeholder-icon"></component>
+                <span class="placeholder-text">点击选择预设</span>
+                <span class="arrow-icon">→</span>
+              </template>
             </div>
-            <div class="preset-picker-content ml-scrollbar">
-              <div class="ml-masonry">
-                <template v-for="preset in presets" :key="preset.id">
-                  <div v-if="matchPresetFilter(preset)" class="ml-masonry-item">
-                    <div
-                      class="preset-picker-card"
-                      :class="{ selected: presetId === preset.id }"
-                      @click="selectPreset(preset)"
-                    >
-                      <!-- 缩略图 -->
-                      <div class="card-thumb" v-if="preset.thumbnail">
-                        <img :src="preset.thumbnail" loading="lazy" />
-                      </div>
-                      <div class="card-thumb empty" v-else>
-                        <k-icon name="image"></k-icon>
-                      </div>
-                      <!-- 底部信息 -->
-                      <div class="card-info">
-                        <div class="card-name">{{ preset.name }}</div>
-                      </div>
-                      <!-- 来源标记 -->
-                      <div class="card-source" :class="preset.source">
-                        {{ preset.source === 'api' ? '远程' : '本地' }}
-                      </div>
-                      <!-- 选中标记 -->
-                      <k-icon v-if="presetId === preset.id" name="check" class="card-check"></k-icon>
-                    </div>
-                  </div>
-                </template>
-              </div>
-              <div v-if="filteredPresetsCount === 0" class="picker-empty">
-                <k-icon name="search"></k-icon>
-                <span>没有找到匹配的预设</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- 生成中状态 -->
-          <div v-else-if="generating" class="generating-state">
-            <div class="generating-content">
-              <div class="loader"></div>
-              <div class="generating-info">
-                <p class="generating-title">正在生成中...</p>
-                <p class="generating-timer">
-                  <k-icon name="stopwatch"></k-icon>
-                  已用时间: {{ formatElapsedTime(elapsedTime) }}
-                </p>
-                <p class="generating-hint" v-if="currentTaskId">任务 ID: {{ currentTaskId }}</p>
-              </div>
-            </div>
-          </div>
-
-          <!-- 有结果 -->
-          <div v-else-if="result" class="result-container">
-            <!-- 成功状态 -->
-            <div v-if="result.success && result.output && result.output.length" class="success-result">
-              <div class="output-grid">
-                <div v-for="(asset, idx) in result.output" :key="idx" class="output-wrapper">
-                  <!-- 图片 -->
-                  <template v-if="asset.kind === 'image'">
-                    <img :src="asset.url" @click="openImagePreview(idx)" class="clickable-image" />
-                    <div class="output-actions">
-                      <a :href="asset.url" target="_blank" class="action-btn" download>
-                        <k-icon name="download"></k-icon>
-                      </a>
-                    </div>
-                  </template>
-                  <!-- 视频 -->
-                  <template v-else-if="asset.kind === 'video'">
-                    <video :src="asset.url" controls class="output-video" />
-                  </template>
-                  <!-- 音频 -->
-                  <template v-else-if="asset.kind === 'audio'">
-                    <div class="audio-wrapper">
-                      <AudioPlayer
-                        :ref="el => setAudioRef(el, idx)"
-                        :src="asset.url!"
-                        :duration="asset.meta?.duration"
-                        @play-state-change="onAudioPlayStateChange(idx, $event)"
-                      />
-                      <div class="output-actions audio-actions">
-                        <a :href="asset.url" target="_blank" class="action-btn" download>
-                          <k-icon name="download"></k-icon>
-                        </a>
-                      </div>
-                    </div>
-                  </template>
-                  <!-- 其他文件 -->
-                  <template v-else-if="asset.kind === 'file'">
-                    <a :href="asset.url" target="_blank" class="file-link">
-                      <k-icon name="file"></k-icon>
-                      {{ asset.meta?.filename || '下载文件' }}
-                    </a>
-                  </template>
-                  <!-- 文本 -->
-                  <template v-else-if="asset.kind === 'text'">
-                    <div class="text-output">{{ asset.content }}</div>
-                  </template>
-                  <!-- 兜底：有 url 则显示链接 -->
-                  <template v-else-if="asset.url">
-                    <a :href="asset.url" target="_blank">{{ asset.url }}</a>
-                  </template>
-                </div>
-              </div>
-              <div class="result-meta">
-                <span class="meta-item success-badge">
-                  <k-icon name="check-circle"></k-icon> 生成成功
-                </span>
-                <span class="meta-item" v-if="result.duration">
-                  <k-icon name="stopwatch"></k-icon> 耗时: {{ formatElapsedTime(result.duration) }}
-                </span>
-                <span class="meta-item" v-if="result.taskId">
-                  <k-icon name="list-alt"></k-icon> 任务 ID: {{ result.taskId }}
-                </span>
-              </div>
-            </div>
-
-            <!-- 失败状态 -->
-            <div v-else class="error-result">
-              <div class="error-content">
-                <k-icon name="exclamation-triangle" class="error-icon"></k-icon>
-                <div class="error-info">
-                  <p class="error-title">生成失败</p>
-                  <p class="error-msg">{{ result.error || '未知错误' }}</p>
-                  <p class="error-meta" v-if="result.taskId">任务 ID: {{ result.taskId }}</p>
-                  <p class="error-meta" v-if="result.duration">耗时: {{ formatElapsedTime(result.duration) }}</p>
-                </div>
-              </div>
-              <k-button class="retry-btn" @click="generate">
-                <template #icon><k-icon name="refresh"></k-icon></template>
-                重新生成
-              </k-button>
-            </div>
-          </div>
-
-          <!-- 空状态 -->
-          <div v-else class="empty-state">
-            <k-icon name="image" class="empty-icon"></k-icon>
-            <p>在左侧配置并点击生成</p>
           </div>
         </div>
 
-        <!-- 右侧历史画廊 -->
-        <HistoryGallery ref="historyGalleryRef" @select="handleHistorySelect" />
+        <div class="form-section flex-grow">
+          <div class="section-title">
+            <span class="section-emoji">✏️</span> 提示词
+          </div>
+          <textarea
+            v-model="form.prompt"
+            class="pop-textarea prompt-input"
+            rows="8"
+            placeholder="输入提示词，支持自然语言描述..."
+          ></textarea>
+        </div>
+
+        <!-- 文件上传区域 -->
+        <div class="form-section">
+          <div class="section-title">
+            <span class="section-emoji">🖼️</span> 参考图片
+          </div>
+          <div class="upload-area">
+            <!-- 已上传的图片列表 -->
+            <div class="upload-list" v-if="fileList.length > 0">
+              <div v-for="(file, index) in fileList" :key="file.uid" class="upload-item">
+                <img :src="file.url" class="upload-thumb" />
+                <div class="upload-overlay" @click="removeFile(index)">
+                  <span>🗑️</span>
+                </div>
+              </div>
+            </div>
+            <!-- 上传按钮 -->
+            <div
+              class="upload-trigger"
+              @click="triggerUpload"
+              @dragover.prevent
+              @drop.prevent="handleDrop"
+            >
+              <input
+                ref="fileInput"
+                type="file"
+                accept="image/*"
+                multiple
+                style="display: none"
+                @change="handleFileSelect"
+              />
+              <span class="upload-icon">➕</span>
+            </div>
+            <div class="upload-tip">点击或拖拽上传参考图片</div>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button
+            class="pop-btn primary generate-btn"
+            :disabled="generating"
+            @click="generate"
+          >
+            <span v-if="generating" class="btn-loading"></span>
+            <span v-else>✨</span>
+            开始生成
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 中间区域 -->
+    <div class="preview-panel pop-scrollbar">
+      <!-- 渠道选择列表 -->
+      <div v-if="pickerMode === 'channel'" class="picker-view">
+        <div class="picker-header">
+          <div class="picker-title-row">
+            <div class="picker-title">
+              <span class="picker-emoji">🔗</span>
+              <span>选择渠道</span>
+              <span class="picker-count">{{ filteredChannels.length }}</span>
+            </div>
+            <button class="pop-btn small" @click="pickerMode = null">
+              ✕
+            </button>
+          </div>
+          <div class="picker-filters">
+            <input
+              v-model="channelSearch"
+              type="text"
+              class="pop-input picker-search"
+              placeholder="🔍 搜索..."
+            />
+            <select
+              v-model="channelConnectorFilter"
+              class="pop-select picker-filter"
+            >
+              <option value="">全部连接器</option>
+              <option
+                v-for="conn in connectors"
+                :key="conn.id"
+                :value="conn.id"
+              >{{ conn.name }}</option>
+            </select>
+          </div>
+        </div>
+        <div class="picker-grid">
+          <div
+            v-for="channel in filteredChannels"
+            :key="channel.id"
+            class="picker-card pop-card"
+            :class="{ selected: form.channel === channel.id }"
+            @click="selectChannel(channel)"
+          >
+            <div class="picker-card-icon">
+              <img
+                v-if="getConnectorIconUrl(channel.connectorId)"
+                :src="getConnectorIconUrl(channel.connectorId)"
+              />
+              <span v-else>🔗</span>
+            </div>
+            <div class="picker-card-name">{{ channel.name }}</div>
+            <span v-if="form.channel === channel.id" class="picker-card-check">✓</span>
+          </div>
+          <div v-if="filteredChannels.length === 0" class="picker-empty">
+            <span class="empty-emoji">🔍</span>
+            <span>没有找到匹配的渠道</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 预设选择列表 -->
+      <div v-else-if="pickerMode === 'preset'" class="picker-view">
+        <div class="picker-header">
+          <div class="picker-title-row">
+            <div class="picker-title">
+              <span class="picker-emoji">📦</span>
+              <span>选择预设</span>
+              <span class="picker-count">{{ filteredPresetsCount }}</span>
+            </div>
+            <button class="pop-btn small" @click="pickerMode = null">
+              ✕
+            </button>
+          </div>
+          <div class="picker-filters">
+            <input
+              v-model="presetSearch"
+              type="text"
+              class="pop-input picker-search"
+              placeholder="🔍 搜索..."
+            />
+            <select
+              v-model="presetSourceFilter"
+              class="pop-select picker-filter"
+            >
+              <option value="">全部来源</option>
+              <option value="user">本地</option>
+              <option value="api">远程</option>
+            </select>
+          </div>
+        </div>
+        <div class="preset-picker-content pop-scrollbar">
+          <div class="preset-grid">
+            <template v-for="preset in presets" :key="preset.id">
+              <div
+                v-if="matchPresetFilter(preset)"
+                class="preset-picker-card pop-card"
+                :class="{ selected: presetId === preset.id }"
+                @click="selectPreset(preset)"
+              >
+                <!-- 缩略图 -->
+                <div class="card-thumb" v-if="preset.thumbnail">
+                  <img :src="preset.thumbnail" loading="lazy" />
+                </div>
+                <div class="card-thumb empty" v-else>
+                  <span>🖼️</span>
+                </div>
+                <!-- 底部信息 -->
+                <div class="card-info">
+                  <div class="card-name">{{ preset.name }}</div>
+                </div>
+                <!-- 来源标记 -->
+                <div class="card-source" :class="preset.source">
+                  {{ preset.source === 'api' ? '远程' : '本地' }}
+                </div>
+                <!-- 选中标记 -->
+                <span v-if="presetId === preset.id" class="card-check">✓</span>
+              </div>
+            </template>
+          </div>
+          <div v-if="filteredPresetsCount === 0" class="picker-empty">
+            <span class="empty-emoji">🔍</span>
+            <span>没有找到匹配的预设</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 生成中状态 -->
+      <div v-else-if="generating" class="generating-state">
+        <div class="generating-content pop-card">
+          <div class="loader"></div>
+          <div class="generating-info">
+            <p class="generating-title">正在生成中...</p>
+            <p class="generating-timer">
+              ⏱️ 已用时间: {{ formatElapsedTime(elapsedTime) }}
+            </p>
+            <p class="generating-hint" v-if="currentTaskId">任务 ID: {{ currentTaskId }}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 有结果 -->
+      <div v-else-if="result" class="result-container">
+        <!-- 成功状态 -->
+        <div v-if="result.success && result.output && result.output.length" class="success-result">
+          <div class="output-grid">
+            <div v-for="(asset, idx) in result.output" :key="idx" class="output-wrapper">
+              <!-- 图片 -->
+              <template v-if="asset.kind === 'image'">
+                <img :src="asset.url" @click="openImagePreview(idx)" class="clickable-image" />
+                <div class="output-actions">
+                  <a :href="asset.url" target="_blank" class="action-btn" download>
+                    ⬇️
+                  </a>
+                </div>
+              </template>
+              <!-- 视频 -->
+              <template v-else-if="asset.kind === 'video'">
+                <video :src="asset.url" controls class="output-video" />
+              </template>
+              <!-- 音频 -->
+              <template v-else-if="asset.kind === 'audio'">
+                <div class="audio-wrapper">
+                  <AudioPlayer
+                    :ref="el => setAudioRef(el, idx)"
+                    :src="asset.url!"
+                    :duration="asset.meta?.duration"
+                    @play-state-change="onAudioPlayStateChange(idx, $event)"
+                  />
+                  <div class="output-actions audio-actions">
+                    <a :href="asset.url" target="_blank" class="action-btn" download>
+                      ⬇️
+                    </a>
+                  </div>
+                </div>
+              </template>
+              <!-- 其他文件 -->
+              <template v-else-if="asset.kind === 'file'">
+                <a :href="asset.url" target="_blank" class="file-link">
+                  📄 {{ asset.meta?.filename || '下载文件' }}
+                </a>
+              </template>
+              <!-- 文本 -->
+              <template v-else-if="asset.kind === 'text'">
+                <div class="text-output">{{ asset.content }}</div>
+              </template>
+              <!-- 兜底：有 url 则显示链接 -->
+              <template v-else-if="asset.url">
+                <a :href="asset.url" target="_blank">{{ asset.url }}</a>
+              </template>
+            </div>
+          </div>
+          <div class="result-meta">
+            <span class="meta-item success-badge">
+              ✅ 生成成功
+            </span>
+            <span class="meta-item" v-if="result.duration">
+              ⏱️ 耗时: {{ formatElapsedTime(result.duration) }}
+            </span>
+            <span class="meta-item" v-if="result.taskId">
+              📋 任务 ID: {{ result.taskId }}
+            </span>
+          </div>
+        </div>
+
+        <!-- 失败状态 -->
+        <div v-else class="error-result">
+          <div class="error-content pop-card">
+            <span class="error-icon">⚠️</span>
+            <div class="error-info">
+              <p class="error-title">生成失败</p>
+              <p class="error-msg">{{ result.error || '未知错误' }}</p>
+              <p class="error-meta" v-if="result.taskId">任务 ID: {{ result.taskId }}</p>
+              <p class="error-meta" v-if="result.duration">耗时: {{ formatElapsedTime(result.duration) }}</p>
+            </div>
+          </div>
+          <button class="pop-btn retry-btn" @click="generate">
+            🔄 重新生成
+          </button>
+        </div>
+      </div>
+
+      <!-- 空状态 -->
+      <div v-else class="empty-state">
+        <span class="empty-icon">🖼️</span>
+        <p>在左侧配置并点击生成</p>
+      </div>
+    </div>
+
+    <!-- 右侧历史画廊 -->
+    <HistoryGallery ref="historyGalleryRef" @select="handleHistorySelect" />
 
     <!-- 图片预览弹窗 -->
     <ImageLightbox
@@ -381,7 +369,6 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, onActivated } from 'vue'
-import { message } from '@koishijs/client'
 import { ChannelConfig, PresetData, GenerationResult, ClientFileData, ConnectorDefinition } from '../types'
 import { channelApi, presetApi, generateApi, taskApi, connectorApi } from '../api'
 import { icons } from '../icons'
@@ -735,7 +722,7 @@ const fetchTaskResult = async (taskId: number): Promise<GenerationResult | null>
 
 const generate = async () => {
   if (!form.value.channel) {
-    message.warning('请选择渠道')
+    alert('请选择渠道')
     return
   }
 
@@ -820,21 +807,28 @@ onUnmounted(() => {
 })
 </script>
 
-<style scoped>
+<style lang="scss">
+@use '../styles/theme.scss';
+</style>
+
+<style scoped lang="scss">
 .generate-layout {
   display: flex;
   gap: 1.25rem;
   height: 100%;
   min-height: 0;
   padding: 0.25rem;
+  overflow: hidden; /* 页面不滚动 */
 }
 
+/* ========== 左侧配置区 ========== */
 .config-panel {
-  width: 340px;
-  flex-shrink: 0;
+  width: 320px;
+  flex: 0 0 320px;
   display: flex;
   flex-direction: column;
   min-height: 0;
+  max-height: 100%;
 }
 
 .config-card {
@@ -844,22 +838,36 @@ onUnmounted(() => {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  border-radius: 16px;
-  background: linear-gradient(180deg, var(--k-card-bg) 0%, rgba(var(--k-color-primary-rgb), 0.02) 100%);
-  border: 1px solid var(--k-color-border);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
-  transition: border-color 0.3s, box-shadow 0.3s;
+  /* 隐藏式滚动条 */
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
 }
 
 .config-card:hover {
-  border-color: rgba(var(--k-color-primary-rgb), 0.3);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  scrollbar-color: var(--ml-border-color) transparent;
+}
+
+.config-card::-webkit-scrollbar {
+  width: 6px;
+}
+
+.config-card::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.config-card::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 3px;
+}
+
+.config-card:hover::-webkit-scrollbar-thumb {
+  background-color: var(--ml-border-color);
 }
 
 .form-section {
   margin-bottom: 1.5rem;
   padding-bottom: 1.25rem;
-  border-bottom: 1px solid rgba(var(--k-color-primary-rgb), 0.08);
+  border-bottom: 2px dashed var(--ml-border-color);
 }
 
 .form-section:last-of-type {
@@ -874,38 +882,23 @@ onUnmounted(() => {
   flex-direction: column;
 }
 
-.form-section.flex-grow :deep(.el-textarea) {
+.form-section.flex-grow .prompt-input {
   flex-grow: 1;
-}
-
-.form-section.flex-grow :deep(.el-textarea__inner) {
-  height: 100% !important;
-  border-radius: 10px;
-  background-color: var(--k-color-bg-2);
-  border: 1px solid var(--k-color-border);
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-.form-section.flex-grow :deep(.el-textarea__inner:focus) {
-  border-color: var(--k-color-active);
-  box-shadow: 0 0 0 3px rgba(var(--k-color-primary-rgb), 0.1);
+  min-height: 120px;
 }
 
 .section-title {
-  font-weight: 700;
+  font-weight: 800;
   margin-bottom: 0.75rem;
-  color: var(--k-color-text);
-  font-size: 0.85rem;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  color: var(--ml-text);
+  font-size: 0.9rem;
   display: flex;
   align-items: center;
   gap: 0.5rem;
 }
 
-.section-title .k-icon {
-  color: var(--k-color-active);
-  font-size: 0.9rem;
+.section-emoji {
+  font-size: 1rem;
 }
 
 .form-item {
@@ -917,19 +910,19 @@ onUnmounted(() => {
 }
 
 .label {
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--k-color-text-description);
-  margin-bottom: 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--ml-text-secondary);
+  margin-bottom: 0.5rem;
   display: flex;
   align-items: center;
   gap: 0.25rem;
 }
 
 .label .optional {
-  font-size: 0.65rem;
-  opacity: 0.6;
-  font-weight: 400;
+  font-size: 0.7rem;
+  opacity: 0.7;
+  font-weight: 500;
 }
 
 /* ========== 选择触发器样式 ========== */
@@ -938,45 +931,28 @@ onUnmounted(() => {
   align-items: center;
   gap: 0.625rem;
   padding: 0.625rem 0.875rem;
-  background: var(--k-color-bg-2);
-  border: 1px solid var(--k-color-border);
-  border-radius: 10px;
+  background: var(--ml-surface);
+  border: var(--ml-border);
+  border-radius: var(--ml-radius);
   cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  min-height: 44px;
+  transition: all 0.2s;
+  min-height: 48px;
   position: relative;
-  overflow: hidden;
-}
-
-.selection-trigger::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, rgba(var(--k-color-primary-rgb), 0.05) 0%, transparent 50%);
-  opacity: 0;
-  transition: opacity 0.25s;
 }
 
 .selection-trigger:hover {
-  border-color: var(--k-color-active);
-  background-color: var(--k-color-bg-1);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
-}
-
-.selection-trigger:hover::before {
-  opacity: 1;
+  transform: translateY(-2px);
+  box-shadow: var(--ml-shadow);
 }
 
 .selection-trigger.active {
-  border-color: var(--k-color-active);
-  box-shadow: 0 0 0 3px rgba(var(--k-color-primary-rgb), 0.12);
+  border-color: var(--ml-primary-dark);
+  background: var(--ml-primary-light);
 }
 
 .selection-trigger.selected {
-  background: linear-gradient(135deg, rgba(var(--k-color-primary-rgb), 0.08) 0%, var(--k-card-bg) 100%);
-  border-color: var(--k-color-active);
-  border-width: 1.5px;
+  background: var(--ml-primary-light);
+  border-color: var(--ml-primary-dark);
 }
 
 .selection-info {
@@ -985,8 +961,6 @@ onUnmounted(() => {
   gap: 0.625rem;
   flex: 1;
   min-width: 0;
-  position: relative;
-  z-index: 1;
 }
 
 .selection-icon {
@@ -995,8 +969,9 @@ onUnmounted(() => {
   border-radius: 6px;
   object-fit: contain;
   flex-shrink: 0;
-  background-color: var(--k-color-bg-1);
+  background-color: var(--ml-bg);
   padding: 2px;
+  border: 2px solid var(--ml-border-color);
 }
 
 .selection-thumb {
@@ -1005,7 +980,7 @@ onUnmounted(() => {
   border-radius: 6px;
   object-fit: cover;
   flex-shrink: 0;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  border: 2px solid var(--ml-border-color);
 }
 
 .selection-icon-fallback {
@@ -1013,24 +988,23 @@ onUnmounted(() => {
   height: 28px;
   padding: 4px;
   box-sizing: border-box;
-  color: var(--k-color-active);
-  background-color: rgba(var(--k-color-primary-rgb), 0.1);
+  color: var(--ml-primary-dark);
+  background-color: var(--ml-primary-light);
   border-radius: 6px;
   flex-shrink: 0;
 }
 
 .selection-name {
   font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--k-color-text);
+  font-weight: 700;
+  color: var(--ml-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .placeholder-icon {
-  color: var(--k-color-text-description);
-  opacity: 0.5;
+  color: var(--ml-text-muted);
   width: 18px;
   height: 18px;
   flex-shrink: 0;
@@ -1038,38 +1012,33 @@ onUnmounted(() => {
 
 .placeholder-text {
   flex: 1;
-  font-size: 0.8rem;
-  color: var(--k-color-text-description);
-  opacity: 0.8;
+  font-size: 0.85rem;
+  color: var(--ml-text-muted);
 }
 
 .arrow-icon {
-  color: var(--k-color-text-description);
-  font-size: 0.75rem;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  opacity: 0.6;
+  color: var(--ml-text-muted);
+  font-size: 0.9rem;
+  transition: transform 0.2s;
 }
 
 .selection-trigger:hover .arrow-icon {
-  color: var(--k-color-active);
   transform: translateX(3px);
-  opacity: 1;
+  color: var(--ml-primary-dark);
 }
 
 .clear-btn {
   padding: 6px;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-muted);
   cursor: pointer;
   transition: all 0.2s;
   flex-shrink: 0;
-  border-radius: 4px;
-  position: relative;
-  z-index: 1;
+  font-size: 0.8rem;
+  font-weight: 700;
 }
 
 .clear-btn:hover {
-  color: var(--k-color-error, #f56c6c);
-  background-color: rgba(245, 108, 108, 0.1);
+  color: var(--ml-error);
 }
 
 /* ========== 选择器视图样式 ========== */
@@ -1086,7 +1055,7 @@ onUnmounted(() => {
   flex-direction: column;
   gap: 0.75rem;
   padding-bottom: 1rem;
-  border-bottom: 1px solid rgba(var(--k-color-primary-rgb), 0.1);
+  border-bottom: 2px dashed var(--ml-border-color);
   margin-bottom: 1rem;
   flex-shrink: 0;
 }
@@ -1101,15 +1070,13 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--k-color-text);
-  white-space: nowrap;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--ml-text);
 }
 
-.picker-title .k-icon {
-  color: var(--k-color-active);
-  font-size: 1rem;
+.picker-emoji {
+  font-size: 1.2rem;
 }
 
 .picker-count {
@@ -1117,17 +1084,14 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   min-width: 24px;
-  height: 20px;
-  padding: 0 6px;
-  font-size: 0.7rem;
-  font-weight: 600;
-  color: white;
-  background-color: var(--k-color-active);
-  border-radius: 10px;
-}
-
-.picker-close-btn {
-  flex-shrink: 0;
+  height: 22px;
+  padding: 0 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--ml-text);
+  background-color: var(--ml-primary);
+  border: 2px solid var(--ml-border-color);
+  border-radius: 12px;
 }
 
 .picker-filters {
@@ -1141,59 +1105,44 @@ onUnmounted(() => {
   min-width: 0;
 }
 
-.picker-search :deep(.el-input__wrapper) {
-  border-radius: 8px;
-  background-color: var(--k-color-bg-2);
-  box-shadow: none;
-  border: 1px solid var(--k-color-border);
-  transition: all 0.2s;
-}
-
-.picker-search :deep(.el-input__wrapper:hover) {
-  border-color: var(--k-color-active);
-}
-
-.picker-search :deep(.el-input__wrapper.is-focus) {
-  border-color: var(--k-color-active);
-  box-shadow: 0 0 0 2px rgba(var(--k-color-primary-rgb), 0.1);
-}
-
-.picker-search :deep(.el-input__prefix) {
-  color: var(--k-color-text-description);
-}
-
 .picker-filter {
-  width: 120px;
+  width: 130px;
   flex-shrink: 0;
-}
-
-.picker-filter :deep(.el-select__wrapper) {
-  border-radius: 8px;
-  background-color: var(--k-color-bg-2);
-  box-shadow: none;
-  border: 1px solid var(--k-color-border);
-  min-height: 32px;
-  transition: all 0.2s;
-}
-
-.picker-filter :deep(.el-select__wrapper:hover) {
-  border-color: var(--k-color-active);
-}
-
-.picker-filter :deep(.el-select__wrapper.is-focused) {
-  border-color: var(--k-color-active);
-  box-shadow: 0 0 0 2px rgba(var(--k-color-primary-rgb), 0.1);
 }
 
 /* 渠道选择卡片网格 */
 .picker-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 0.875rem;
   flex: 1;
   align-content: start;
   overflow-y: auto;
   padding: 0.25rem;
+  /* 隐藏式滚动条 */
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.picker-grid:hover {
+  scrollbar-color: var(--ml-border-color) transparent;
+}
+
+.picker-grid::-webkit-scrollbar {
+  width: 6px;
+}
+
+.picker-grid::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.picker-grid::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 3px;
+}
+
+.picker-grid:hover::-webkit-scrollbar-thumb {
+  background-color: var(--ml-border-color);
 }
 
 .picker-card {
@@ -1201,81 +1150,43 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   gap: 0.625rem;
-  padding: 1.125rem 0.875rem;
-  background: var(--k-card-bg);
-  border: 1px solid var(--k-color-border);
-  border-radius: 12px;
+  padding: 1rem 0.75rem;
   cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-}
-
-.picker-card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 12px;
-  background: linear-gradient(135deg, rgba(var(--k-color-primary-rgb), 0.05) 0%, transparent 50%);
-  opacity: 0;
-  transition: opacity 0.25s;
-  pointer-events: none;
-}
-
-.picker-card:hover {
-  background-color: var(--k-color-bg-1);
-  border-color: var(--k-color-active);
-  transform: translateY(-3px);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
-}
-
-.picker-card:hover::before {
-  opacity: 1;
 }
 
 .picker-card.selected {
-  border-color: var(--k-color-active);
-  border-width: 2px;
-  background: linear-gradient(135deg, rgba(var(--k-color-primary-rgb), 0.1) 0%, var(--k-card-bg) 100%);
-  box-shadow: 0 0 0 3px rgba(var(--k-color-primary-rgb), 0.1);
+  background: var(--ml-primary-light);
+  border-color: var(--ml-primary-dark);
 }
 
 .picker-card-icon {
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: var(--k-color-bg-2);
-  border-radius: 10px;
-  position: relative;
-  z-index: 1;
+  background-color: var(--ml-bg);
+  border: 2px solid var(--ml-border-color);
+  border-radius: 12px;
+  font-size: 1.5rem;
 }
 
 .picker-card-icon img {
-  width: 30px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   object-fit: contain;
 }
 
-.picker-card-icon .k-icon {
-  font-size: 1.5rem;
-  color: var(--k-color-active);
-  opacity: 0.8;
-}
-
 .picker-card-name {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--k-color-text);
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--ml-text);
   text-align: center;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 100%;
-  line-height: 1.4;
-  position: relative;
-  z-index: 1;
 }
 
 .picker-card-check {
@@ -1284,90 +1195,88 @@ onUnmounted(() => {
   right: 0.5rem;
   width: 22px;
   height: 22px;
-  background-color: var(--k-color-active);
+  background-color: var(--ml-success);
+  border: 2px solid var(--ml-border-color);
   border-radius: 50%;
   color: white;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 0.7rem;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  font-weight: 700;
 }
 
 .picker-empty {
+  grid-column: 1 / -1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 0.75rem;
   padding: 3rem;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-muted);
 }
 
-.picker-empty .k-icon {
+.empty-emoji {
   font-size: 2.5rem;
-  opacity: 0.3;
+  opacity: 0.5;
 }
 
-/* ========== 预设选择器样式（复用 PresetsView 的卡片样式） ========== */
+/* ========== 预设选择器样式 ========== */
 .preset-picker-content {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
   padding: 0.5rem;
+  /* 隐藏式滚动条 */
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
 }
 
-/* 瀑布流布局覆盖 */
-.preset-picker-content .ml-masonry {
-  columns: 4;
-  column-gap: 0.75rem;
+.preset-picker-content:hover {
+  scrollbar-color: var(--ml-border-color) transparent;
 }
 
-.preset-picker-content .ml-masonry-item {
-  break-inside: avoid;
-  margin-bottom: 0.75rem;
+.preset-picker-content::-webkit-scrollbar {
+  width: 6px;
 }
 
-@media (max-width: 1200px) {
-  .preset-picker-content .ml-masonry { columns: 3; }
+.preset-picker-content::-webkit-scrollbar-track {
+  background: transparent;
 }
 
-@media (max-width: 900px) {
-  .preset-picker-content .ml-masonry { columns: 2; }
+.preset-picker-content::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 3px;
 }
 
-/* 预设卡片 */
+.preset-picker-content:hover::-webkit-scrollbar-thumb {
+  background-color: var(--ml-border-color);
+}
+
+.preset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 1rem;
+}
+
 .preset-picker-card {
-  background: var(--k-card-bg);
-  border: 1px solid var(--k-color-border);
-  border-radius: 8px;
-  overflow: hidden;
   cursor: pointer;
   position: relative;
-  transition: all 0.2s;
-}
-
-.preset-picker-card:hover {
-  border-color: var(--k-color-active);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
 }
 
 .preset-picker-card.selected {
-  border-color: var(--k-color-active);
-  border-width: 2px;
-  box-shadow: 0 0 0 2px rgba(var(--k-color-primary-rgb), 0.2);
+  background: var(--ml-primary-light);
+  border-color: var(--ml-primary-dark);
 }
 
-.preset-picker-card:hover .card-thumb img {
-  transform: scale(1.03);
-}
-
-/* 缩略图 */
 .preset-picker-card .card-thumb {
   width: 100%;
   position: relative;
   overflow: hidden;
-  background: var(--k-color-bg-2);
+  background: var(--ml-bg-alt);
+  border-bottom: 2px solid var(--ml-border-color);
 }
 
 .preset-picker-card .card-thumb img {
@@ -1377,68 +1286,71 @@ onUnmounted(() => {
   transition: transform 0.3s;
 }
 
+.preset-picker-card:hover .card-thumb img {
+  transform: scale(1.05);
+}
+
 .preset-picker-card .card-thumb.empty {
   aspect-ratio: 4/3;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--k-color-text-description);
-  opacity: 0.4;
   font-size: 2rem;
+  opacity: 0.4;
 }
 
-/* 底部信息 */
 .preset-picker-card .card-info {
-  padding: 0.5rem 0.625rem;
+  padding: 0.625rem;
 }
 
 .preset-picker-card .card-name {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--k-color-text);
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--ml-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* 来源标记 */
 .preset-picker-card .card-source {
   position: absolute;
   top: 0.375rem;
   left: 0.375rem;
-  font-size: 0.6rem;
-  padding: 2px 5px;
-  border-radius: 3px;
-  font-weight: 600;
+  font-size: 0.65rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 700;
+  border: 2px solid var(--ml-border-color);
 }
 
 .preset-picker-card .card-source.api {
-  background: var(--k-color-active);
-  color: white;
+  background: var(--ml-primary);
+  color: var(--ml-text);
 }
 
 .preset-picker-card .card-source.user {
-  background: var(--k-color-warning, #e6a23c);
-  color: white;
+  background: var(--ml-warning);
+  color: var(--ml-text);
 }
 
-/* 选中标记 */
 .preset-picker-card .card-check {
   position: absolute;
   top: 0.375rem;
   right: 0.375rem;
   width: 22px;
   height: 22px;
-  background-color: var(--k-color-active);
+  background-color: var(--ml-success);
+  border: 2px solid var(--ml-border-color);
   border-radius: 50%;
   color: white;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.75rem;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  font-size: 0.7rem;
+  font-weight: 700;
 }
 
+/* ========== 生成按钮 ========== */
 .form-actions {
   margin-top: auto;
   padding-top: 1.25rem;
@@ -1446,49 +1358,31 @@ onUnmounted(() => {
 
 .generate-btn {
   width: 100%;
-  height: 46px;
-  font-size: 0.95rem;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  background: linear-gradient(135deg, var(--k-color-primary) 0%, var(--k-color-primary-dark, var(--k-color-primary)) 100%);
-  border: none;
-  border-radius: 10px;
-  position: relative;
-  overflow: hidden;
+  height: 50px;
+  font-size: 1rem;
 }
 
-.generate-btn::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 50%);
-  opacity: 0;
-  transition: opacity 0.3s;
+.btn-loading {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--ml-border-color);
+  border-top-color: var(--ml-primary-dark);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-right: 0.5rem;
 }
 
-.generate-btn:not(:disabled):hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(var(--k-color-primary-rgb), 0.45);
-  filter: brightness(1.08);
-}
-
-.generate-btn:not(:disabled):hover::before {
-  opacity: 1;
-}
-
-.generate-btn:not(:disabled):active {
-  transform: translateY(0);
-  box-shadow: 0 4px 12px rgba(var(--k-color-primary-rgb), 0.3);
-}
-
+/* ========== 预览面板 ========== */
 .preview-panel {
   flex: 1 1 0;
   min-height: 0;
   min-width: 0;
-  background: linear-gradient(180deg, var(--k-card-bg) 0%, rgba(var(--k-color-primary-rgb), 0.02) 100%);
-  border-radius: 16px;
-  border: 1px solid var(--k-color-border);
+  max-height: 100%;
+  background: var(--ml-surface);
+  border-radius: var(--ml-radius);
+  border: var(--ml-border);
+  box-shadow: var(--ml-shadow);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1496,19 +1390,36 @@ onUnmounted(() => {
   padding: 2rem;
   position: relative;
   overflow-y: auto;
-  transition: border-color 0.3s, box-shadow 0.3s;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+  /* 隐藏式滚动条 */
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
 }
 
-.preview-panel:hover {
-  border-color: rgba(var(--k-color-primary-rgb), 0.3);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+.result-panel:hover {
+  scrollbar-color: var(--ml-border-color) transparent;
 }
 
-/* States */
+.result-panel::-webkit-scrollbar {
+  width: 6px;
+}
+
+.result-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.result-panel::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 3px;
+}
+
+.result-panel:hover::-webkit-scrollbar-thumb {
+  background-color: var(--ml-border-color);
+}
+
+/* 空状态 */
 .empty-state {
   text-align: center;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-muted);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1517,19 +1428,18 @@ onUnmounted(() => {
 }
 
 .empty-icon {
-  font-size: 4.5rem;
-  margin-bottom: 1.25rem;
-  opacity: 0.15;
-  color: var(--k-color-text);
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  opacity: 0.4;
 }
 
 .empty-state p {
-  font-size: 0.9rem;
-  opacity: 0.7;
+  font-size: 0.95rem;
+  font-weight: 600;
   margin: 0;
 }
 
-/* 生成中状态 - 增强样式 */
+/* 生成中状态 */
 .generating-state {
   display: flex;
   flex-direction: column;
@@ -1545,14 +1455,11 @@ onUnmounted(() => {
   align-items: center;
   gap: 1.5rem;
   padding: 2rem;
-  background: linear-gradient(135deg, rgba(var(--k-color-primary-rgb), 0.05) 0%, rgba(var(--k-color-primary-rgb), 0.02) 100%);
-  border-radius: 16px;
-  border: 1px solid rgba(var(--k-color-primary-rgb), 0.1);
 }
 
 .loader {
-  border: 4px solid var(--k-color-bg-2);
-  border-top: 4px solid var(--k-color-active);
+  border: 4px solid var(--ml-bg-alt);
+  border-top: 4px solid var(--ml-primary-dark);
   border-radius: 50%;
   width: 48px;
   height: 48px;
@@ -1570,8 +1477,8 @@ onUnmounted(() => {
 
 .generating-title {
   font-size: 1.1rem;
-  font-weight: 600;
-  color: var(--k-color-text);
+  font-weight: 800;
+  color: var(--ml-text);
   margin: 0 0 0.75rem 0;
 }
 
@@ -1580,20 +1487,19 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--k-color-active);
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--ml-primary-dark);
   margin: 0 0 0.5rem 0;
-  font-variant-numeric: tabular-nums;
 }
 
 .generating-hint {
   font-size: 0.85rem;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-muted);
   margin: 0;
 }
 
-/* Result */
+/* 结果容器 */
 .result-container {
   width: 100%;
   height: 100%;
@@ -1619,18 +1525,17 @@ onUnmounted(() => {
 
 .output-wrapper {
   position: relative;
-  border-radius: 12px;
+  border-radius: var(--ml-radius);
   overflow: hidden;
-  border: 1px solid var(--k-color-border);
-  background-color: var(--k-card-bg);
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  border: var(--ml-border);
+  background-color: var(--ml-surface);
+  transition: all 0.2s;
+  box-shadow: var(--ml-shadow-sm);
 }
 
 .output-wrapper:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-  border-color: transparent;
+  box-shadow: var(--ml-shadow);
 }
 
 .output-wrapper img {
@@ -1650,7 +1555,7 @@ onUnmounted(() => {
   display: block;
 }
 
-/* 音频包装器样式 */
+/* 音频包装器 */
 .audio-wrapper {
   position: relative;
   min-width: 280px;
@@ -1658,6 +1563,25 @@ onUnmounted(() => {
 }
 
 .audio-wrapper:hover .audio-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.output-actions {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 0.5rem;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  justify-content: flex-end;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+}
+
+.output-wrapper:hover .output-actions {
   opacity: 1;
   pointer-events: auto;
 }
@@ -1671,60 +1595,14 @@ onUnmounted(() => {
   left: auto;
   padding: 0;
   background: transparent;
-  transition: opacity 0.2s;
-  pointer-events: none;
-}
-
-.output-actions.audio-actions .action-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-}
-
-.output-actions.audio-actions .action-btn:hover {
-  background: rgba(0, 0, 0, 0.7);
-  transform: scale(1.1);
-}
-
-.output-wrapper:has(.audio-wrapper) {
-  border: none;
-  box-shadow: none;
-  background: transparent;
-}
-
-.output-wrapper:has(.audio-wrapper):hover {
-  transform: none;
-  box-shadow: none;
-}
-
-.output-actions {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 0.5rem;
-  background: rgba(0,0,0,0.5);
-  display: flex;
-  justify-content: flex-end;
-  opacity: 0;
-  transition: opacity 0.2s;
-  pointer-events: none;
-}
-
-.output-wrapper:hover .output-actions {
-  opacity: 1;
-  pointer-events: auto;
 }
 
 .action-btn {
   color: white;
-  padding: 4px;
+  padding: 6px;
   cursor: pointer;
+  font-size: 1rem;
+  text-decoration: none;
 }
 
 .result-meta {
@@ -1732,9 +1610,10 @@ onUnmounted(() => {
   display: flex;
   gap: 1.5rem;
   flex-wrap: wrap;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-secondary);
   font-size: 0.9rem;
-  border-top: 1px solid var(--k-color-border);
+  font-weight: 600;
+  border-top: 2px dashed var(--ml-border-color);
   padding-top: 1rem;
 }
 
@@ -1745,11 +1624,10 @@ onUnmounted(() => {
 }
 
 .success-badge {
-  color: var(--k-color-success, #67c23a);
-  font-weight: 600;
+  color: var(--ml-success);
 }
 
-/* 错误状态 - 增强样式 */
+/* 错误状态 */
 .error-result {
   display: flex;
   flex-direction: column;
@@ -1765,14 +1643,11 @@ onUnmounted(() => {
   align-items: center;
   gap: 1rem;
   padding: 2rem;
-  background: linear-gradient(135deg, rgba(245, 108, 108, 0.08) 0%, rgba(245, 108, 108, 0.02) 100%);
-  border-radius: 16px;
-  border: 1px solid rgba(245, 108, 108, 0.2);
+  border-color: var(--ml-error) !important;
 }
 
 .error-icon {
   font-size: 3rem;
-  color: var(--k-color-error, #f56c6c);
 }
 
 .error-info {
@@ -1781,13 +1656,14 @@ onUnmounted(() => {
 
 .error-title {
   font-size: 1.1rem;
-  font-weight: 600;
-  color: var(--k-color-error, #f56c6c);
+  font-weight: 800;
+  color: var(--ml-error);
   margin: 0 0 0.5rem 0;
 }
 
 .error-msg {
-  color: var(--k-color-text);
+  color: var(--ml-text);
+  font-weight: 600;
   margin: 0 0 0.5rem 0;
   max-width: 400px;
   word-break: break-word;
@@ -1795,7 +1671,7 @@ onUnmounted(() => {
 
 .error-meta {
   font-size: 0.85rem;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-muted);
   margin: 0;
 }
 
@@ -1803,7 +1679,7 @@ onUnmounted(() => {
   margin-top: 0.5rem;
 }
 
-/* Upload Area */
+/* ========== 上传区域 ========== */
 .upload-area {
   margin-top: 0.5rem;
 }
@@ -1821,15 +1697,13 @@ onUnmounted(() => {
   height: 60px;
   border-radius: 8px;
   overflow: hidden;
-  border: 1px solid var(--k-color-border);
-  background-color: var(--k-color-bg-2);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  border: 2px solid var(--ml-border-color);
+  background-color: var(--ml-bg);
   transition: all 0.2s;
 }
 
 .upload-item:hover {
   transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .upload-thumb {
@@ -1841,15 +1715,15 @@ onUnmounted(() => {
 .upload-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, rgba(245, 108, 108, 0.85) 0%, rgba(220, 80, 80, 0.9) 100%);
+  background: rgba(220, 38, 38, 0.85);
   display: flex;
   align-items: center;
   justify-content: center;
   opacity: 0;
-  transition: opacity 0.25s;
+  transition: opacity 0.2s;
   cursor: pointer;
   color: white;
-  font-size: 1.1rem;
+  font-size: 1.2rem;
 }
 
 .upload-item:hover .upload-overlay {
@@ -1859,82 +1733,66 @@ onUnmounted(() => {
 .upload-trigger {
   width: 60px;
   height: 60px;
-  border: 2px dashed var(--k-color-border);
+  border: 3px dashed var(--ml-border-color);
   border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  background-color: var(--k-color-bg-2);
-  position: relative;
-}
-
-.upload-trigger::before {
-  content: '';
-  position: absolute;
-  inset: 4px;
-  border-radius: 4px;
-  background: rgba(var(--k-color-primary-rgb), 0.05);
-  opacity: 0;
-  transition: opacity 0.25s;
+  transition: all 0.2s;
+  background-color: var(--ml-bg);
 }
 
 .upload-trigger:hover {
-  border-color: var(--k-color-active);
-  background-color: var(--k-color-bg-1);
+  border-color: var(--ml-primary-dark);
+  background-color: var(--ml-primary-light);
   transform: scale(1.05);
 }
 
-.upload-trigger:hover::before {
-  opacity: 1;
-}
-
 .upload-icon {
-  font-size: 1.35rem;
-  color: var(--k-color-text-description);
-  transition: all 0.25s;
-  position: relative;
-  z-index: 1;
+  font-size: 1.5rem;
+  transition: transform 0.2s;
 }
 
 .upload-trigger:hover .upload-icon {
-  color: var(--k-color-active);
-  transform: scale(1.1);
+  transform: scale(1.2);
 }
 
 .upload-tip {
-  font-size: 0.7rem;
-  color: var(--k-color-text-description);
+  font-size: 0.75rem;
+  color: var(--ml-text-muted);
   margin-top: 0.5rem;
-  opacity: 0.7;
 }
 
-/* Text output */
+/* 文本输出 */
 .text-output {
   padding: 1rem;
-  background-color: var(--k-color-bg-2);
-  border-radius: 6px;
+  background-color: var(--ml-bg);
+  border: var(--ml-border);
+  border-radius: var(--ml-radius-sm);
   white-space: pre-wrap;
   word-break: break-word;
   font-family: inherit;
   line-height: 1.6;
 }
 
-/* File link */
+/* 文件链接 */
 .file-link {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   padding: 1rem;
-  background-color: var(--k-color-bg-2);
-  border-radius: 6px;
-  color: var(--k-color-active);
+  background-color: var(--ml-bg);
+  border: var(--ml-border);
+  border-radius: var(--ml-radius-sm);
+  color: var(--ml-primary-dark);
   text-decoration: none;
-  transition: background-color 0.2s;
+  font-weight: 700;
+  transition: all 0.2s;
 }
 
 .file-link:hover {
-  background-color: var(--k-color-bg-3);
+  background-color: var(--ml-primary-light);
+  transform: translateY(-2px);
 }
 </style>

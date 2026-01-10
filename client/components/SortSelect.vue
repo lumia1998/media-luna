@@ -67,28 +67,33 @@ const handleCommand = (command: SortValue) => {
   display: inline-flex;
 }
 
+/* 排序触发器 - 波普风格 */
 .sort-trigger {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 12px;
+  padding: 6px 14px;
   font-size: 0.85rem;
-  border-radius: 16px;
-  border: 1px solid var(--k-color-border);
-  background-color: transparent;
-  color: var(--k-color-text-description);
+  font-weight: 700;
+  border-radius: var(--ml-radius, 12px);
+  border: 2px solid var(--ml-border-color, #451a03);
+  background-color: var(--ml-surface, #ffffff);
+  color: var(--ml-text, #451a03);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   user-select: none;
+  box-shadow: 2px 2px 0 var(--ml-border-color, #451a03);
 }
 
 .sort-trigger:hover {
-  border-color: var(--k-color-active);
-  color: var(--k-color-active);
+  border-color: var(--ml-primary, #fbbf24);
+  background-color: var(--ml-cream, #fffbeb);
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--ml-border-color, #451a03);
 }
 
 .trigger-text {
-  font-weight: 500;
+  font-weight: 700;
 }
 
 .arrow-icon {
@@ -96,7 +101,8 @@ const handleCommand = (command: SortValue) => {
 }
 
 :deep(.el-dropdown-menu__item.is-active) {
-  color: var(--k-color-active);
-  font-weight: 600;
+  color: var(--ml-primary-dark, #d97706);
+  font-weight: 700;
+  background-color: var(--ml-primary-light, #fde68a);
 }
 </style>

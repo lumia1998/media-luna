@@ -41,13 +41,15 @@ defineEmits<{
 </script>
 
 <style scoped>
+/* 视图切换 - 波普风格 */
 .view-mode-switch {
   display: flex;
   gap: 2px;
-  background-color: var(--k-color-bg-2);
-  border: 1px solid var(--k-color-border);
-  border-radius: 6px;
-  padding: 2px;
+  background-color: var(--ml-bg-alt, #fef3c7);
+  border: 2px solid var(--ml-border-color, #451a03);
+  border-radius: var(--ml-radius-sm, 8px);
+  padding: 3px;
+  box-shadow: 2px 2px 0 var(--ml-border-color, #451a03);
 }
 
 .mode-btn {
@@ -58,21 +60,21 @@ defineEmits<{
   height: 28px;
   border: none;
   background: transparent;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-secondary, #92400e);
   cursor: pointer;
-  border-radius: 4px;
-  transition: all 0.2s ease;
+  border-radius: 6px;
+  transition: all 0.15s ease;
   font-size: 16px;
 }
 
 .mode-btn:hover {
-  color: var(--k-color-text);
-  background-color: var(--k-color-bg-1);
+  color: var(--ml-text, #451a03);
+  background-color: var(--ml-cream, #fffbeb);
 }
 
 .mode-btn.active {
-  color: var(--k-color-active);
-  background-color: var(--k-card-bg);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  color: var(--ml-text, #451a03);
+  background-color: var(--ml-primary, #fbbf24);
+  border: 2px solid var(--ml-border-color, #451a03);
 }
 </style>

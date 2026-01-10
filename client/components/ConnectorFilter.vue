@@ -134,47 +134,59 @@ const onDropdownVisibleChange = (visible: boolean) => {
   display: inline-flex;
 }
 
+/* 筛选触发器 - 波普风格 */
 .filter-trigger {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 12px;
+  padding: 6px 14px;
   font-size: 0.85rem;
-  border-radius: 16px;
-  border: 1px solid var(--k-color-border);
-  background-color: transparent;
-  color: var(--k-color-text-description);
+  font-weight: 700;
+  border-radius: var(--ml-radius, 12px);
+  border: 2px solid var(--ml-border-color, #451a03);
+  background-color: var(--ml-surface, #ffffff);
+  color: var(--ml-text, #451a03);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   user-select: none;
+  box-shadow: 2px 2px 0 var(--ml-border-color, #451a03);
 }
 
 .filter-trigger:hover {
-  border-color: var(--k-color-active);
-  color: var(--k-color-active);
+  border-color: var(--ml-primary, #fbbf24);
+  background-color: var(--ml-cream, #fffbeb);
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--ml-border-color, #451a03);
 }
 
 .filter-trigger.active {
-  background-color: var(--k-color-active);
-  border-color: var(--k-color-active);
-  color: white;
+  background-color: var(--ml-primary, #fbbf24);
+  border-color: var(--ml-border-color, #451a03);
+  color: var(--ml-text, #451a03);
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--ml-border-color, #451a03);
 }
 
 .trigger-text {
-  font-weight: 500;
+  font-weight: 700;
 }
 
 .count-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
   font-size: 0.75rem;
-  font-weight: 600;
-  border-radius: 9px;
-  background-color: rgba(255, 255, 255, 0.3);
+  font-weight: 800;
+  border-radius: 10px;
+  background-color: var(--ml-surface, #ffffff);
+  border: 2px solid var(--ml-border-color, #451a03);
+}
+
+.filter-trigger.active .count-badge {
+  background-color: var(--ml-surface, #ffffff);
 }
 
 .arrow-icon {
@@ -182,37 +194,63 @@ const onDropdownVisibleChange = (visible: boolean) => {
   transition: transform 0.2s;
 }
 
-/* 下拉面板样式 */
+/* 下拉面板样式 - 波普风格 */
 .connector-dropdown {
   width: 280px;
   max-height: 400px;
   overflow-y: auto;
   padding: 8px 0;
+  /* 隐藏式滚动条 */
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.connector-dropdown:hover {
+  scrollbar-color: var(--ml-border-color, #451a03) transparent;
+}
+
+.connector-dropdown::-webkit-scrollbar {
+  width: 6px;
+}
+
+.connector-dropdown::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.connector-dropdown::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 3px;
+}
+
+.connector-dropdown:hover::-webkit-scrollbar-thumb {
+  background-color: var(--ml-border-color, #451a03);
 }
 
 .dropdown-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 16px;
-  border-bottom: 1px solid var(--k-color-border);
+  padding: 10px 16px;
+  border-bottom: 2px solid var(--ml-border-color, #451a03);
   margin-bottom: 8px;
 }
 
 .header-title {
   font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--k-color-text);
+  font-weight: 700;
+  color: var(--ml-text, #451a03);
 }
 
 .clear-btn {
   font-size: 0.75rem;
-  color: var(--k-color-active);
+  font-weight: 700;
+  color: var(--ml-primary-dark, #d97706);
   cursor: pointer;
 }
 
 .clear-btn:hover {
   text-decoration: underline;
+  color: var(--ml-error, #ef4444);
 }
 
 /* 分组样式 */
@@ -228,10 +266,10 @@ const onDropdownVisibleChange = (visible: boolean) => {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 16px;
+  padding: 6px 16px;
   font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--k-color-text-description);
+  font-weight: 700;
+  color: var(--ml-text-muted, #92400e);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -249,40 +287,42 @@ const onDropdownVisibleChange = (visible: boolean) => {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 16px;
+  padding: 10px 16px;
   cursor: pointer;
-  transition: background-color 0.15s;
+  transition: all 0.15s;
 }
 
 .connector-item:hover {
-  background-color: var(--k-color-bg-2);
+  background-color: var(--ml-bg-alt, #fef3c7);
 }
 
 .connector-item.selected {
-  background-color: rgba(var(--k-color-active-rgb, 64, 158, 255), 0.1);
+  background-color: var(--ml-primary-light, #fde68a);
 }
 
 .connector-icon {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   object-fit: contain;
-  border-radius: 4px;
+  border-radius: 6px;
+  border: 2px solid var(--ml-border-color, #451a03);
 }
 
 .connector-icon-fallback {
-  width: 20px;
-  height: 20px;
-  color: var(--k-color-text-description);
+  width: 22px;
+  height: 22px;
+  color: var(--ml-text-muted, #92400e);
 }
 
 .connector-name {
   flex: 1;
   font-size: 0.85rem;
-  color: var(--k-color-text);
+  font-weight: 600;
+  color: var(--ml-text, #451a03);
 }
 
 .check-icon {
-  color: var(--k-color-active);
+  color: var(--ml-primary-dark, #d97706);
   font-size: 0.9rem;
 }
 </style>

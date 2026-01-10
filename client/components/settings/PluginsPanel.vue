@@ -1,14 +1,14 @@
 <template>
   <div class="plugins-panel">
     <!-- 加载状态 -->
-    <div v-if="loading" class="loading-state">
-      <k-icon name="sync" class="spin" />
+    <div v-if="loading" class="loading-state pop-card no-hover">
+      <span class="spin">🔄</span>
       <span>加载中...</span>
     </div>
 
     <!-- 空状态 -->
-    <div v-else-if="plugins.length === 0" class="empty-state">
-      <k-icon name="apps" />
+    <div v-else-if="plugins.length === 0" class="empty-state pop-card no-hover">
+      <span class="empty-icon">🧩</span>
       <p>暂无扩展插件</p>
       <p class="hint">第三方扩展插件将在这里显示<br>内置功能请在"功能模块"中配置</p>
     </div>
@@ -19,7 +19,7 @@
         <div
           v-for="plugin in sortedPlugins"
           :key="plugin.id"
-          class="plugin-card"
+          class="plugin-card pop-card"
           :class="{ active: selectedPlugin?.id === plugin.id, disabled: !plugin.enabled }"
           @click="selectPlugin(plugin)"
         >
@@ -31,44 +31,40 @@
             <p class="plugin-description">{{ plugin.description || '暂无描述' }}</p>
           </div>
           <div class="plugin-status">
-            <span v-if="plugin.connector" class="plugin-badge connector">连接器</span>
+            <span v-if="plugin.connector" class="plugin-badge connector">🔗 连接器</span>
             <span v-if="plugin.middlewares?.length" class="plugin-badge middleware">
-              {{ plugin.middlewares.length }} 个中间件
+              🧱 {{ plugin.middlewares.length }} 个中间件
             </span>
-            <k-icon
-              :name="plugin.enabled ? 'check-circle' : 'close-circle'"
-              :class="plugin.enabled ? 'enabled' : 'disabled'"
-            />
+            <span :class="plugin.enabled ? 'status-enabled' : 'status-disabled'">
+              {{ plugin.enabled ? '✅' : '⛔' }}
+            </span>
           </div>
         </div>
       </div>
 
       <!-- 插件详情 -->
-      <div v-if="selectedPlugin" class="plugin-detail">
+      <div v-if="selectedPlugin" class="plugin-detail pop-card no-hover">
         <header class="detail-header">
           <div class="header-left">
             <h3>{{ selectedPlugin.name }}</h3>
             <span v-if="selectedPlugin.version" class="version">v{{ selectedPlugin.version }}</span>
           </div>
           <div class="header-actions">
-            <k-button
+            <button
               v-for="action in selectedPlugin.actions"
               :key="action.name"
-              :type="action.type || 'default'"
-              size="small"
+              class="pop-btn small"
+              :class="action.type === 'primary' ? 'primary' : ''"
               @click="executeAction(action)"
             >
-              <template v-if="action.icon" #icon>
-                <k-icon :name="action.icon" />
-              </template>
               {{ action.label }}
-            </k-button>
+            </button>
           </div>
         </header>
 
         <!-- 连接器信息 -->
         <div v-if="selectedPlugin.connector" class="connector-info">
-          <h4>连接器</h4>
+          <h4>🔗 连接器</h4>
           <div class="connector-meta">
             <span class="connector-id">{{ selectedPlugin.connector.id }}</span>
             <span class="connector-types">
@@ -79,7 +75,7 @@
 
         <!-- 中间件列表 -->
         <div v-if="selectedPlugin.middlewares?.length" class="middlewares-list">
-          <h4>中间件</h4>
+          <h4>🧱 中间件</h4>
           <div class="middleware-tags">
             <span
               v-for="mw in selectedPlugin.middlewares"
@@ -95,30 +91,29 @@
 
         <!-- 配置表单 -->
         <div v-if="selectedPlugin.configFields?.length" class="config-section">
-          <h4>配置</h4>
+          <h4>⚙️ 配置</h4>
           <ConfigRenderer
             :fields="selectedPlugin.configFields"
             v-model="pluginConfig"
             :presets-map="selectedPlugin.presets"
           />
           <div class="config-actions">
-            <k-button type="primary" @click="saveConfig" :loading="saving">
-              <template #icon><k-icon name="save" /></template>
-              保存配置
-            </k-button>
+            <button class="pop-btn primary" @click="saveConfig" :disabled="saving">
+              {{ saving ? '保存中...' : '💾 保存配置' }}
+            </button>
           </div>
         </div>
 
         <!-- 无配置提示 -->
         <div v-else class="no-config">
-          <k-icon name="info-circle" />
+          <span class="no-config-icon">ℹ️</span>
           <span>该插件暂无可配置项</span>
         </div>
       </div>
 
       <!-- 无选中提示 -->
-      <div v-else class="no-selection">
-        <k-icon name="apps" />
+      <div v-else class="no-selection pop-card no-hover">
+        <span class="no-selection-icon">🧩</span>
         <p>请从左侧选择一个插件查看详情</p>
       </div>
     </template>
@@ -127,7 +122,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { message, send } from '@koishijs/client'
+import { send } from '@koishijs/client'
 import { pluginApi, PluginInfo } from '../../api'
 import ConfigRenderer from '../ConfigRenderer.vue'
 
@@ -189,7 +184,7 @@ const saveConfig = async () => {
   saving.value = true
   try {
     await pluginApi.updateConfig(selectedPlugin.value.id, pluginConfig.value)
-    message.success('保存成功')
+    alert('保存成功')
     await loadPlugins()
     // 更新当前选中的插件
     const updated = plugins.value.find(p => p.id === selectedPlugin.value?.id)
@@ -198,7 +193,7 @@ const saveConfig = async () => {
       pluginConfig.value = { ...updated.config }
     }
   } catch (e) {
-    message.error('保存失败')
+    alert('保存失败')
   } finally {
     saving.value = false
   }
@@ -215,28 +210,32 @@ const executeAction = async (action: { apiEvent: string; label: string }) => {
     if (action.apiEvent === 'media-luna/presets/sync' && result?.data) {
       const { added, updated, removed, notModified } = result.data
       if (notModified) {
-        message.info('数据未变化，无需更新')
+        alert('数据未变化，无需更新')
       } else {
-        message.success(`同步完成：新增 ${added}，更新 ${updated}，删除 ${removed}`)
+        alert(`同步完成：新增 ${added}，更新 ${updated}，删除 ${removed}`)
       }
     } else if (result?.data?.message) {
-      message.success(result.data.message)
+      alert(result.data.message)
     } else {
-      message.success(`${action.label} 完成`)
+      alert(`${action.label} 完成`)
     }
     await loadPlugins()
   } catch (e) {
-    message.error(`${action.label} 失败: ${e instanceof Error ? e.message : '未知错误'}`)
+    alert(`${action.label} 失败: ${e instanceof Error ? e.message : '未知错误'}`)
   }
 }
 
 onMounted(loadPlugins)
 </script>
 
-<style scoped>
+<style lang="scss">
+@use '../../styles/theme.scss';
+</style>
+
+<style scoped lang="scss">
 .plugins-panel {
   display: flex;
-  gap: 1.5rem;
+  gap: 24px;
   height: 100%;
 }
 
@@ -248,22 +247,23 @@ onMounted(loadPlugins)
   justify-content: center;
   gap: 12px;
   padding: 3rem;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-muted);
   width: 100%;
 }
 
-.loading-state .k-icon,
-.empty-state .k-icon {
-  font-size: 2rem;
-  opacity: 0.5;
+.empty-icon,
+.no-selection-icon,
+.no-config-icon {
+  font-size: 3rem;
 }
 
 .empty-state .hint {
   font-size: 12px;
-  opacity: 0.7;
+  text-align: center;
 }
 
 .spin {
+  font-size: 2rem;
   animation: spin 1s linear infinite;
 }
 
@@ -284,7 +284,7 @@ onMounted(loadPlugins)
 }
 
 .plugins-list:hover {
-  scrollbar-color: var(--k-color-border) transparent;
+  scrollbar-color: var(--ml-border-color) transparent;
 }
 
 .plugins-list::-webkit-scrollbar {
@@ -301,26 +301,16 @@ onMounted(loadPlugins)
 }
 
 .plugins-list:hover::-webkit-scrollbar-thumb {
-  background-color: var(--k-color-border);
+  background-color: var(--ml-border-color);
 }
 
 .plugin-card {
-  background: var(--k-card-bg);
-  border: 1px solid var(--k-color-border);
-  border-radius: 10px;
-  padding: 12px 14px;
+  padding: 12px 16px;
   cursor: pointer;
-  transition: all 0.2s;
-}
-
-.plugin-card:hover {
-  border-color: var(--k-color-active);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .plugin-card.active {
-  border-color: var(--k-color-active);
-  background: var(--k-color-active-bg);
+  background: var(--ml-primary);
 }
 
 .plugin-card.disabled {
@@ -334,26 +324,27 @@ onMounted(loadPlugins)
 .plugin-header {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   margin-bottom: 4px;
 }
 
 .plugin-name {
-  font-weight: 500;
-  color: var(--k-color-text);
+  font-weight: 700;
+  color: var(--ml-text);
 }
 
 .plugin-version {
   font-size: 11px;
-  color: var(--k-color-text-description);
-  background: var(--k-color-bg-2);
-  padding: 1px 6px;
-  border-radius: 4px;
+  color: var(--ml-text-muted);
+  background: var(--ml-cream);
+  padding: 2px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--ml-border-color);
 }
 
 .plugin-description {
   font-size: 12px;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-muted);
   margin: 0;
   line-height: 1.4;
   display: -webkit-box;
@@ -365,47 +356,38 @@ onMounted(loadPlugins)
 .plugin-status {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
 .plugin-badge {
-  font-size: 10px;
-  padding: 2px 6px;
-  border-radius: 4px;
-  background: var(--k-color-bg-2);
-  color: var(--k-color-text-description);
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: var(--ml-cream);
+  border: 1px solid var(--ml-border-color);
+  color: var(--ml-text);
+  font-weight: 600;
 }
 
 .plugin-badge.connector {
-  background: rgba(var(--k-color-active-rgb), 0.15);
-  color: var(--k-color-active);
+  background: #dbeafe;
 }
 
 .plugin-badge.middleware {
-  background: rgba(var(--k-color-success-rgb), 0.15);
-  color: var(--k-color-success);
+  background: #dcfce7;
 }
 
-.plugin-status .k-icon {
+.status-enabled,
+.status-disabled {
   margin-left: auto;
-}
-
-.plugin-status .enabled {
-  color: var(--k-color-success);
-}
-
-.plugin-status .disabled {
-  color: var(--k-color-text-description);
+  font-size: 16px;
 }
 
 .plugin-detail {
   flex: 1;
   min-width: 0;
-  background: var(--k-card-bg);
-  border: 1px solid var(--k-color-border);
-  border-radius: 12px;
-  padding: 1.5rem;
+  padding: 24px;
   overflow-y: auto;
   /* 隐藏式滚动条 */
   scrollbar-width: thin;
@@ -413,7 +395,7 @@ onMounted(loadPlugins)
 }
 
 .plugin-detail:hover {
-  scrollbar-color: var(--k-color-border) transparent;
+  scrollbar-color: var(--ml-border-color) transparent;
 }
 
 .plugin-detail::-webkit-scrollbar {
@@ -430,33 +412,34 @@ onMounted(loadPlugins)
 }
 
 .plugin-detail:hover::-webkit-scrollbar-thumb {
-  background-color: var(--k-color-border);
+  background-color: var(--ml-border-color);
 }
 
 .detail-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 1.5rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid var(--k-color-border);
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid var(--ml-border-color);
 }
 
 .header-left {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .header-left h3 {
   margin: 0;
-  font-size: 1.1rem;
-  font-weight: 600;
+  font-size: 1.25rem;
+  font-weight: 900;
+  color: var(--ml-text);
 }
 
 .header-left .version {
   font-size: 12px;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-muted);
 }
 
 .header-actions {
@@ -465,28 +448,29 @@ onMounted(loadPlugins)
 }
 
 .connector-info, .middlewares-list, .config-section {
-  margin-bottom: 1.5rem;
+  margin-bottom: 24px;
 }
 
 .connector-info h4, .middlewares-list h4, .config-section h4 {
   font-size: 14px;
-  font-weight: 500;
-  color: var(--k-color-text);
-  margin: 0 0 0.75rem 0;
+  font-weight: 700;
+  color: var(--ml-text);
+  margin: 0 0 12px 0;
 }
 
 .connector-meta {
   display: flex;
   gap: 12px;
   font-size: 13px;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-muted);
 }
 
 .connector-id {
   font-family: monospace;
-  background: var(--k-color-bg-2);
-  padding: 2px 8px;
-  border-radius: 4px;
+  background: var(--ml-cream);
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--ml-border-color);
 }
 
 .middleware-tags {
@@ -499,28 +483,32 @@ onMounted(loadPlugins)
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 10px;
-  background: var(--k-color-bg-2);
-  border-radius: 6px;
+  padding: 6px 12px;
+  background: var(--ml-cream);
+  border: 2px solid var(--ml-border-color);
+  border-radius: var(--ml-radius);
   font-size: 12px;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-muted);
+  font-weight: 600;
 }
 
 .middleware-tag.enabled {
-  color: var(--k-color-text);
+  color: var(--ml-text);
+  background: var(--ml-surface);
 }
 
 .phase-badge {
   font-size: 10px;
-  padding: 1px 4px;
-  background: var(--k-color-bg-1);
-  border-radius: 3px;
+  padding: 2px 6px;
+  background: var(--ml-primary);
+  border-radius: 6px;
+  font-weight: 700;
 }
 
 .config-actions {
-  margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--k-color-border);
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 2px solid var(--ml-border-color);
 }
 
 .no-config, .no-selection {
@@ -530,18 +518,11 @@ onMounted(loadPlugins)
   justify-content: center;
   gap: 12px;
   padding: 3rem;
-  color: var(--k-color-text-description);
-}
-
-.no-config .k-icon, .no-selection .k-icon {
-  font-size: 2rem;
-  opacity: 0.5;
+  color: var(--ml-text-muted);
+  font-weight: 600;
 }
 
 .no-selection {
   flex: 1;
-  background: var(--k-card-bg);
-  border: 1px solid var(--k-color-border);
-  border-radius: 12px;
 }
 </style>

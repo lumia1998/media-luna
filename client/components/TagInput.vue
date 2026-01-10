@@ -38,6 +38,7 @@ const model = computed({
 </script>
 
 <style scoped>
+/* 标签输入 - 波普风格 */
 .tag-input {
   width: 100%;
 }
@@ -46,18 +47,19 @@ const model = computed({
 }
 
 .tag-select :deep(.el-tag) {
-  background-color: var(--k-color-bg-3);
-  color: var(--k-color-text);
-  border-color: transparent;
-  border-radius: 4px;
+  background-color: var(--ml-primary-light, #fde68a);
+  color: var(--ml-text, #451a03);
+  border: 2px solid var(--ml-border-color, #451a03);
+  border-radius: var(--ml-radius-sm, 8px);
+  font-weight: 700;
 }
 
 .tag-select :deep(.el-tag .el-tag__close) {
-  color: var(--k-color-text-description);
+  color: var(--ml-text-secondary, #92400e);
 }
 
 .tag-select :deep(.el-tag .el-tag__close:hover) {
-  background-color: var(--k-color-text);
-  color: var(--k-color-bg-1);
+  background-color: var(--ml-error, #ef4444);
+  color: white;
 }
 </style>

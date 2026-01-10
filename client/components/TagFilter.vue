@@ -93,6 +93,7 @@ const addCustomTag = () => {
 </script>
 
 <style scoped>
+/* 标签筛选 - 波普风格 */
 .tag-filter {
   display: flex;
   flex-wrap: wrap;
@@ -107,26 +108,32 @@ const addCustomTag = () => {
 }
 
 .filter-tag {
-  padding: 4px 12px;
+  padding: 5px 14px;
   font-size: 0.85rem;
-  border-radius: 16px;
-  border: 1px solid var(--k-color-border);
-  background-color: transparent;
-  color: var(--k-color-text-description);
+  font-weight: 700;
+  border-radius: var(--ml-radius, 12px);
+  border: 2px solid var(--ml-border-color, #451a03);
+  background-color: var(--ml-surface, #ffffff);
+  color: var(--ml-text-secondary, #92400e);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   user-select: none;
+  box-shadow: 2px 2px 0 var(--ml-border-color, #451a03);
 }
 
 .filter-tag:hover {
-  border-color: var(--k-color-active);
-  color: var(--k-color-active);
+  border-color: var(--ml-primary, #fbbf24);
+  color: var(--ml-text, #451a03);
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--ml-border-color, #451a03);
 }
 
 .filter-tag.active {
-  background-color: var(--k-color-active);
-  border-color: var(--k-color-active);
-  color: white;
+  background-color: var(--ml-primary, #fbbf24);
+  border-color: var(--ml-border-color, #451a03);
+  color: var(--ml-text, #451a03);
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--ml-border-color, #451a03);
 }
 
 .filter-input-wrapper {

@@ -305,30 +305,35 @@ watch(() => props.modelValue, (newVal) => {
 })
 </script>
 
-<style scoped>
-@import '../styles/shared.css';
+<style lang="scss">
+@use '../styles/theme.scss';
+</style>
 
+<style scoped lang="scss">
 .preset-picker {
   width: 100%;
 }
 
-/* 选中预设显示 */
+/* 选中预设显示 - 波普风格 */
 .selected-preset {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.375rem 0.625rem;
-  background-color: var(--k-color-bg-2);
-  border: 1px solid var(--k-color-border);
-  border-radius: 4px;
+  padding: 0.5rem 0.75rem;
+  background-color: var(--ml-surface, #ffffff);
+  border: 2px solid var(--ml-border-color, #451a03);
+  border-radius: var(--ml-radius-sm, 8px);
   cursor: pointer;
-  transition: all 0.2s;
-  min-height: 36px;
+  transition: all 0.15s ease;
+  min-height: 40px;
+  box-shadow: 2px 2px 0 var(--ml-border-color, #451a03);
 }
 
 .selected-preset:hover {
-  border-color: var(--k-color-active);
-  background-color: var(--k-color-bg-1);
+  border-color: var(--ml-primary, #fbbf24);
+  background-color: var(--ml-cream, #fffbeb);
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--ml-border-color, #451a03);
 }
 
 .preset-info {
@@ -340,34 +345,35 @@ watch(() => props.modelValue, (newVal) => {
 }
 
 .preset-thumb {
-  width: 28px;
-  height: 28px;
-  border-radius: 4px;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--ml-radius-sm, 8px);
   object-fit: cover;
   flex-shrink: 0;
+  border: 2px solid var(--ml-border-color, #451a03);
 }
 
 .preset-thumb.placeholder {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: var(--k-color-bg-1);
-  color: var(--k-color-text-description);
+  background-color: var(--ml-bg-alt, #fef3c7);
+  color: var(--ml-text-muted, #92400e);
   font-size: 0.75rem;
 }
 
 .preset-details {
   display: flex;
   align-items: center;
-  gap: 0.375rem;
+  gap: 0.5rem;
   flex: 1;
   min-width: 0;
 }
 
 .preset-name {
-  font-size: 0.85rem;
-  font-weight: 500;
-  color: var(--k-color-text);
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--ml-text, #451a03);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -375,51 +381,54 @@ watch(() => props.modelValue, (newVal) => {
 
 .preset-source {
   font-size: 0.65rem;
-  padding: 1px 5px;
-  border-radius: 3px;
+  padding: 2px 6px;
+  border-radius: 6px;
   flex-shrink: 0;
+  font-weight: 700;
+  border: 2px solid var(--ml-border-color, #451a03);
 }
 
 .preset-source.api {
-  background-color: var(--k-color-active);
-  color: white;
+  background-color: var(--ml-primary, #fbbf24);
+  color: var(--ml-text, #451a03);
 }
 
 .preset-source.user {
-  background-color: var(--k-color-warning, #e6a23c);
+  background-color: var(--ml-warning, #f97316);
   color: white;
 }
 
 .clear-btn {
-  padding: 3px;
-  color: var(--k-color-text-description);
+  padding: 4px;
+  color: var(--ml-text-muted, #92400e);
   cursor: pointer;
-  transition: color 0.2s;
+  transition: all 0.15s;
   flex-shrink: 0;
   font-size: 0.85rem;
 }
 
 .clear-btn:hover {
-  color: var(--k-color-error, #f56c6c);
+  color: var(--ml-error, #ef4444);
 }
 
 .placeholder-text {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  color: var(--k-color-text-description);
+  gap: 0.5rem;
+  color: var(--ml-text-muted, #92400e);
   flex: 1;
-  font-size: 0.85rem;
+  font-size: 0.875rem;
+  font-weight: 600;
 }
 
 .dropdown-icon {
-  color: var(--k-color-text-description);
+  color: var(--ml-text-muted, #92400e);
   flex-shrink: 0;
   transition: transform 0.2s;
 }
 
 .selected-preset:hover .dropdown-icon {
-  color: var(--k-color-active);
+  color: var(--ml-primary-dark, #d97706);
 }
 
 /* 选择器弹窗 */
@@ -441,7 +450,8 @@ watch(() => props.modelValue, (newVal) => {
 
 .preset-count {
   font-size: 0.85rem;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-muted, #92400e);
+  font-weight: 600;
   flex-shrink: 0;
 }
 
@@ -457,7 +467,7 @@ watch(() => props.modelValue, (newVal) => {
 }
 
 .picker-content:hover {
-  scrollbar-color: var(--k-color-border) transparent;
+  scrollbar-color: var(--ml-border-color, #451a03) transparent;
 }
 
 .picker-content::-webkit-scrollbar {
@@ -475,7 +485,7 @@ watch(() => props.modelValue, (newVal) => {
 }
 
 .picker-content:hover::-webkit-scrollbar-thumb {
-  background-color: var(--k-color-border);
+  background-color: var(--ml-border-color, #451a03);
 }
 
 /* 确保对话框内瀑布流正确渲染 */
@@ -501,26 +511,29 @@ watch(() => props.modelValue, (newVal) => {
   .picker-content .ml-masonry { columns: 2; }
 }
 
-/* ========== 复用 PresetsView 的卡片样式 ========== */
+/* ========== 预设卡片 - 波普风格 ========== */
 
 .preset-card {
-  background-color: var(--k-color-bg-1);
-  border: 2px solid var(--k-color-border);
-  border-radius: 8px;
+  background-color: var(--ml-surface, #ffffff);
+  border: 2px solid var(--ml-border-color, #451a03);
+  border-radius: var(--ml-radius, 12px);
   overflow: hidden;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   position: relative;
+  box-shadow: 3px 3px 0 var(--ml-border-color, #451a03);
 }
 
 .preset-card:hover {
-  border-color: var(--k-color-active);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-color: var(--ml-primary, #fbbf24);
+  transform: translate(-2px, -2px);
+  box-shadow: 5px 5px 0 var(--ml-border-color, #451a03);
 }
 
 .preset-card.selected {
-  border-color: var(--k-color-active);
-  background-color: rgba(var(--k-color-primary-rgb), 0.05);
+  border-color: var(--ml-primary, #fbbf24);
+  background-color: var(--ml-primary-light, #fde68a);
+  box-shadow: 4px 4px 0 var(--ml-primary-dark, #d97706);
 }
 
 .card-thumbnail {
@@ -528,7 +541,7 @@ watch(() => props.modelValue, (newVal) => {
   aspect-ratio: auto;
   position: relative;
   overflow: hidden;
-  background-color: var(--k-color-bg-2);
+  background-color: var(--ml-bg-alt, #fef3c7);
 }
 
 .card-thumbnail img {
@@ -547,7 +560,7 @@ watch(() => props.modelValue, (newVal) => {
 
 .placeholder-icon {
   font-size: 2rem;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-muted, #92400e);
   opacity: 0.5;
 }
 
@@ -557,7 +570,7 @@ watch(() => props.modelValue, (newVal) => {
   left: 0;
   right: 0;
   padding: 0.5rem;
-  background: linear-gradient(transparent, rgba(0, 0, 0, 0.6));
+  background: linear-gradient(transparent, rgba(69, 26, 3, 0.7));
   display: flex;
   justify-content: flex-end;
 }
@@ -567,10 +580,11 @@ watch(() => props.modelValue, (newVal) => {
   align-items: center;
   gap: 4px;
   font-size: 0.75rem;
+  font-weight: 700;
   color: white;
-  background-color: rgba(0, 0, 0, 0.5);
-  padding: 2px 6px;
-  border-radius: 4px;
+  background-color: rgba(69, 26, 3, 0.7);
+  padding: 3px 8px;
+  border-radius: 6px;
 }
 
 .card-content {
@@ -579,8 +593,8 @@ watch(() => props.modelValue, (newVal) => {
 
 .card-title {
   font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--k-color-text);
+  font-weight: 700;
+  color: var(--ml-text, #451a03);
   margin-bottom: 0.5rem;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -595,15 +609,17 @@ watch(() => props.modelValue, (newVal) => {
 
 .mini-tag {
   font-size: 0.7rem;
+  font-weight: 600;
   padding: 2px 6px;
-  background-color: var(--k-color-bg-2);
-  color: var(--k-color-text-description);
-  border-radius: 4px;
+  background-color: var(--ml-bg-alt, #fef3c7);
+  color: var(--ml-text, #451a03);
+  border: 1px solid var(--ml-border-color, #451a03);
+  border-radius: 6px;
 }
 
 .mini-tag.more {
-  background-color: var(--k-color-active);
-  color: white;
+  background-color: var(--ml-primary, #fbbf24);
+  color: var(--ml-text, #451a03);
 }
 
 .card-actions {
@@ -611,8 +627,8 @@ watch(() => props.modelValue, (newVal) => {
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 0.75rem;
-  border-top: 1px solid var(--k-color-border);
-  background-color: var(--k-color-bg-2);
+  border-top: 2px solid var(--ml-border-color, #451a03);
+  background-color: var(--ml-bg-alt, #fef3c7);
 }
 
 .source-indicator {
@@ -620,18 +636,19 @@ watch(() => props.modelValue, (newVal) => {
   top: 0.5rem;
   left: 0.5rem;
   font-size: 0.65rem;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-weight: 700;
+  border: 2px solid var(--ml-border-color, #451a03);
 }
 
 .source-indicator.api {
-  background-color: var(--k-color-active);
-  color: white;
+  background-color: var(--ml-primary, #fbbf24);
+  color: var(--ml-text, #451a03);
 }
 
 .source-indicator.user {
-  background-color: var(--k-color-warning, #e6a23c);
+  background-color: var(--ml-warning, #f97316);
   color: white;
 }
 
@@ -641,14 +658,15 @@ watch(() => props.modelValue, (newVal) => {
   right: 0.5rem;
   width: 28px;
   height: 28px;
-  background-color: var(--k-color-active);
+  background-color: var(--ml-primary, #fbbf24);
+  border: 2px solid var(--ml-border-color, #451a03);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
+  color: var(--ml-text, #451a03);
   font-size: 1rem;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  box-shadow: 2px 2px 0 var(--ml-border-color, #451a03);
 }
 
 /* 空状态 */
@@ -656,12 +674,12 @@ watch(() => props.modelValue, (newVal) => {
   grid-column: 1 / -1;
   text-align: center;
   padding: 3rem;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-muted, #92400e);
 }
 
 .empty-icon {
   font-size: 2.5rem;
-  opacity: 0.3;
+  opacity: 0.4;
   margin-bottom: 1rem;
 }
 
@@ -677,8 +695,9 @@ watch(() => props.modelValue, (newVal) => {
   width: 100%;
   max-height: 200px;
   overflow: hidden;
-  border-radius: 8px;
-  background-color: var(--k-color-bg-2);
+  border-radius: var(--ml-radius, 12px);
+  background-color: var(--ml-bg-alt, #fef3c7);
+  border: 2px solid var(--ml-border-color, #451a03);
 }
 
 .detail-thumbnail img {
@@ -701,8 +720,8 @@ watch(() => props.modelValue, (newVal) => {
 
 .detail-label {
   font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--k-color-text-description);
+  font-weight: 700;
+  color: var(--ml-text-secondary, #92400e);
 }
 
 .detail-tags {
@@ -714,31 +733,58 @@ watch(() => props.modelValue, (newVal) => {
 .source-badge {
   display: inline-block;
   font-size: 0.75rem;
-  padding: 2px 8px;
-  border-radius: 4px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 8px;
+  border: 2px solid var(--ml-border-color, #451a03);
 }
 
 .source-badge.api {
-  background-color: var(--k-color-active);
-  color: white;
+  background-color: var(--ml-primary, #fbbf24);
+  color: var(--ml-text, #451a03);
 }
 
 .source-badge.user {
-  background-color: var(--k-color-warning, #e6a23c);
+  background-color: var(--ml-warning, #f97316);
   color: white;
 }
 
 .prompt-preview {
   padding: 0.75rem;
-  background-color: var(--k-color-bg-2);
-  border-radius: 6px;
+  background-color: var(--ml-bg-alt, #fef3c7);
+  border: 2px solid var(--ml-border-color, #451a03);
+  border-radius: var(--ml-radius-sm, 8px);
   font-size: 0.85rem;
-  color: var(--k-color-text);
+  color: var(--ml-text, #451a03);
   white-space: pre-wrap;
   word-break: break-word;
   max-height: 150px;
   overflow-y: auto;
   font-family: monospace;
+  /* 隐藏式滚动条 */
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.prompt-preview:hover {
+  scrollbar-color: var(--ml-border-color, #451a03) transparent;
+}
+
+.prompt-preview::-webkit-scrollbar {
+  width: 4px;
+}
+
+.prompt-preview::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.prompt-preview::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 2px;
+}
+
+.prompt-preview:hover::-webkit-scrollbar-thumb {
+  background-color: var(--ml-border-color, #451a03);
 }
 
 .reference-images {
@@ -751,20 +797,45 @@ watch(() => props.modelValue, (newVal) => {
   width: 80px;
   height: 80px;
   object-fit: cover;
-  border-radius: 6px;
-  border: 1px solid var(--k-color-border);
+  border-radius: var(--ml-radius-sm, 8px);
+  border: 2px solid var(--ml-border-color, #451a03);
 }
 
 .param-preview {
   padding: 0.75rem;
-  background-color: var(--k-color-bg-2);
-  border-radius: 6px;
+  background-color: var(--ml-bg-alt, #fef3c7);
+  border: 2px solid var(--ml-border-color, #451a03);
+  border-radius: var(--ml-radius-sm, 8px);
   font-size: 0.8rem;
   font-family: monospace;
   white-space: pre-wrap;
-  color: var(--k-color-text);
+  color: var(--ml-text, #451a03);
   max-height: 100px;
   overflow-y: auto;
+  /* 隐藏式滚动条 */
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.param-preview:hover {
+  scrollbar-color: var(--ml-border-color, #451a03) transparent;
+}
+
+.param-preview::-webkit-scrollbar {
+  width: 4px;
+}
+
+.param-preview::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.param-preview::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 2px;
+}
+
+.param-preview:hover::-webkit-scrollbar-thumb {
+  background-color: var(--ml-border-color, #451a03);
 }
 
 /* 弹窗底部 */

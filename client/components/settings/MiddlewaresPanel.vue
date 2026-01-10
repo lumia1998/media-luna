@@ -16,9 +16,9 @@
         class="phase-section"
       >
         <!-- 阶段标题 -->
-        <div class="phase-header" :class="phase.colorClass">
+        <div class="phase-header pop-card no-hover" :class="phase.colorClass">
           <div class="phase-icon">
-            <k-icon :name="phase.icon" />
+            <span>{{ phase.emoji }}</span>
           </div>
           <div class="phase-info">
             <span class="phase-name">{{ phase.label }}</span>
@@ -35,7 +35,7 @@
             class="mw-item"
             :class="{ disabled: !mw.enabled }"
           >
-            <div class="mw-card">
+            <div class="mw-card pop-card no-hover">
               <div class="mw-status" :class="{ active: mw.enabled }"></div>
               <div class="mw-content">
                 <span class="mw-name">{{ mw.displayName }}</span>
@@ -61,16 +61,14 @@
         <!-- 阶段间连接箭头 -->
         <div v-if="phaseIndex < phases.length - 1" class="phase-connector">
           <div class="connector-line"></div>
-          <div class="connector-arrow">
-            <k-icon name="chevron-down" />
-          </div>
+          <div class="connector-arrow">⬇️</div>
           <div class="connector-line"></div>
         </div>
       </div>
     </div>
 
     <!-- 底部说明 -->
-    <div class="pipeline-footer">
+    <div class="pipeline-footer pop-card no-hover">
       <div class="footer-item">
         <span class="dot active"></span>
         <span>启用 - 中间件将在请求中执行</span>
@@ -86,7 +84,6 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { message } from '@koishijs/client'
 import { middlewareApi } from '../../api'
 import type { MiddlewareInfo } from '../../types'
 
@@ -97,35 +94,35 @@ const phases = [
     id: 'lifecycle-prepare',
     label: '准备',
     description: '验证、权限检查、任务创建',
-    icon: 'clipboard-check',
+    emoji: '📋',
     colorClass: 'phase-prepare'
   },
   {
     id: 'lifecycle-pre-request',
     label: '预处理',
     description: '预设应用、参数处理',
-    icon: 'settings',
+    emoji: '⚙️',
     colorClass: 'phase-pre'
   },
   {
     id: 'lifecycle-request',
     label: '执行',
     description: '调用连接器生成',
-    icon: 'play',
+    emoji: '▶️',
     colorClass: 'phase-request'
   },
   {
     id: 'lifecycle-post-request',
     label: '后处理',
     description: '结果缓存、格式转换',
-    icon: 'package',
+    emoji: '📦',
     colorClass: 'phase-post'
   },
   {
     id: 'lifecycle-finalize',
     label: '完成',
     description: '计费结算、记录保存',
-    icon: 'check-circle',
+    emoji: '✅',
     colorClass: 'phase-finalize'
   }
 ]
@@ -149,7 +146,7 @@ const loadMiddlewares = async () => {
   try {
     middlewares.value = await middlewareApi.list()
   } catch (e) {
-    message.error('加载中间件列表失败')
+    alert('加载中间件列表失败')
   }
 }
 
@@ -158,16 +155,20 @@ const toggleMiddleware = async (mw: MiddlewareInfo) => {
   try {
     await middlewareApi.update(mw.name, { enabled: newEnabled })
     mw.enabled = newEnabled
-    message.success(newEnabled ? '已启用' : '已禁用')
+    alert(newEnabled ? '已启用' : '已禁用')
   } catch (e) {
-    message.error('操作失败')
+    alert('操作失败')
   }
 }
 
 onMounted(loadMiddlewares)
 </script>
 
-<style scoped>
+<style lang="scss">
+@use '../../styles/theme.scss';
+</style>
+
+<style scoped lang="scss">
 .pipeline-panel {
   display: flex;
   flex-direction: column;
@@ -186,15 +187,15 @@ onMounted(loadMiddlewares)
 .header-title h3 {
   margin: 0;
   font-size: 16px;
-  font-weight: 600;
-  color: var(--k-color-text);
+  font-weight: 900;
+  color: var(--ml-text);
 }
 
 .header-title .subtitle {
   display: block;
   margin-top: 4px;
   font-size: 12px;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-muted);
 }
 
 /* 流程图 */
@@ -216,31 +217,25 @@ onMounted(loadMiddlewares)
   align-items: center;
   gap: 12px;
   padding: 12px 16px;
-  background: var(--k-card-bg);
-  border: 1px solid var(--k-color-border);
-  border-radius: 10px;
-  transition: all 0.2s;
-}
-
-.phase-header:hover {
-  border-color: var(--k-color-active);
 }
 
 .phase-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  font-size: 16px;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--ml-radius);
+  font-size: 20px;
+  background: var(--ml-cream);
+  border: 2px solid var(--ml-border-color);
 }
 
-.phase-prepare .phase-icon { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
-.phase-pre .phase-icon { background: rgba(139, 92, 246, 0.15); color: #8b5cf6; }
-.phase-request .phase-icon { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
-.phase-post .phase-icon { background: rgba(249, 115, 22, 0.15); color: #f97316; }
-.phase-finalize .phase-icon { background: rgba(99, 102, 241, 0.15); color: #6366f1; }
+.phase-prepare .phase-icon { background: #dbeafe; }
+.phase-pre .phase-icon { background: #ede9fe; }
+.phase-request .phase-icon { background: #dcfce7; }
+.phase-post .phase-icon { background: #ffedd5; }
+.phase-finalize .phase-icon { background: #e0e7ff; }
 
 .phase-info {
   flex: 1;
@@ -251,27 +246,28 @@ onMounted(loadMiddlewares)
 
 .phase-name {
   font-size: 14px;
-  font-weight: 600;
-  color: var(--k-color-text);
+  font-weight: 700;
+  color: var(--ml-text);
 }
 
 .phase-desc {
   font-size: 11px;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-muted);
 }
 
 .phase-badge {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 24px;
-  height: 24px;
-  padding: 0 8px;
-  background: var(--k-color-bg-2);
-  border-radius: 12px;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 10px;
+  background: var(--ml-primary);
+  border: 2px solid var(--ml-border-color);
+  border-radius: 14px;
   font-size: 12px;
-  font-weight: 500;
-  color: var(--k-color-text-description);
+  font-weight: 700;
+  color: var(--ml-text);
 }
 
 /* 中间件列表 */
@@ -281,7 +277,7 @@ onMounted(loadMiddlewares)
   gap: 0;
   margin-left: 24px;
   padding-left: 24px;
-  border-left: 2px solid var(--k-color-border);
+  border-left: 3px solid var(--ml-border-color);
 }
 
 .mw-item {
@@ -294,8 +290,8 @@ onMounted(loadMiddlewares)
   left: -25px;
   top: 50%;
   width: 12px;
-  height: 2px;
-  background: var(--k-color-border);
+  height: 3px;
+  background: var(--ml-border-color);
 }
 
 .mw-card {
@@ -304,32 +300,23 @@ onMounted(loadMiddlewares)
   gap: 12px;
   padding: 10px 14px;
   margin: 6px 0;
-  background: var(--k-card-bg);
-  border: 1px solid var(--k-color-border);
-  border-radius: 8px;
-  transition: all 0.2s;
-}
-
-.mw-card:hover {
-  border-color: var(--k-color-active);
-  background: var(--k-color-bg-1);
 }
 
 .mw-item.disabled .mw-card {
   opacity: 0.6;
-  background: var(--k-color-bg-2);
 }
 
 .mw-status {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
-  background: var(--k-color-text-description);
+  background: var(--ml-text-muted);
+  border: 2px solid var(--ml-border-color);
   flex-shrink: 0;
 }
 
 .mw-status.active {
-  background: #22c55e;
+  background: var(--ml-success);
   box-shadow: 0 0 8px rgba(34, 197, 94, 0.4);
 }
 
@@ -343,13 +330,13 @@ onMounted(loadMiddlewares)
 
 .mw-name {
   font-size: 13px;
-  font-weight: 500;
-  color: var(--k-color-text);
+  font-weight: 600;
+  color: var(--ml-text);
 }
 
 .mw-desc {
   font-size: 11px;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -359,8 +346,8 @@ onMounted(loadMiddlewares)
 .toggle-switch {
   position: relative;
   display: inline-block;
-  width: 40px;
-  height: 22px;
+  width: 44px;
+  height: 24px;
   cursor: pointer;
   flex-shrink: 0;
 }
@@ -378,9 +365,9 @@ onMounted(loadMiddlewares)
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: var(--k-color-bg-2);
-  border: 1px solid var(--k-color-border);
-  border-radius: 22px;
+  background-color: var(--ml-cream);
+  border: 2px solid var(--ml-border-color);
+  border-radius: 24px;
   transition: 0.2s;
 }
 
@@ -391,27 +378,27 @@ onMounted(loadMiddlewares)
   width: 16px;
   left: 2px;
   bottom: 2px;
-  background-color: var(--k-color-text-description);
+  background-color: var(--ml-text-muted);
   border-radius: 50%;
   transition: 0.2s;
 }
 
 .toggle-switch input:checked + .slider {
-  background-color: var(--k-color-active);
-  border-color: var(--k-color-active);
+  background-color: var(--ml-primary);
+  border-color: var(--ml-primary-dark);
 }
 
 .toggle-switch input:checked + .slider:before {
-  transform: translateX(18px);
-  background-color: white;
+  transform: translateX(20px);
+  background-color: var(--ml-text);
 }
 
 /* 空状态 */
 .empty-phase {
   margin-left: 24px;
   padding: 12px 24px;
-  border-left: 2px dashed var(--k-color-border);
-  color: var(--k-color-text-description);
+  border-left: 3px dashed var(--ml-border-color);
+  color: var(--ml-text-muted);
   font-size: 12px;
   font-style: italic;
 }
@@ -425,19 +412,18 @@ onMounted(loadMiddlewares)
 }
 
 .connector-line {
-  width: 2px;
+  width: 3px;
   height: 8px;
-  background: var(--k-color-border);
+  background: var(--ml-border-color);
 }
 
 .connector-arrow {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
-  color: var(--k-color-text-description);
-  font-size: 12px;
+  width: 24px;
+  height: 24px;
+  font-size: 14px;
 }
 
 /* 底部说明 */
@@ -446,8 +432,6 @@ onMounted(loadMiddlewares)
   flex-direction: column;
   gap: 8px;
   padding: 16px;
-  background: var(--k-color-bg-2);
-  border-radius: 10px;
 }
 
 .footer-item {
@@ -455,26 +439,26 @@ onMounted(loadMiddlewares)
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  color: var(--k-color-text-description);
+  color: var(--ml-text-muted);
 }
 
 .dot {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
-  background: var(--k-color-text-description);
+  background: var(--ml-text-muted);
+  border: 2px solid var(--ml-border-color);
 }
 
 .dot.active {
-  background: #22c55e;
+  background: var(--ml-success);
 }
 
 .footer-hint {
   margin: 8px 0 0 0;
   padding-top: 8px;
-  border-top: 1px solid var(--k-color-border);
+  border-top: 2px solid var(--ml-border-color);
   font-size: 11px;
-  color: var(--k-color-text-description);
-  opacity: 0.8;
+  color: var(--ml-text-muted);
 }
 </style>
