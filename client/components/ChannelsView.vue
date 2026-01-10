@@ -1,128 +1,157 @@
 <template>
   <div class="channels-view">
-    <div class="view-header">
-      <div class="header-left">
-        <button class="pop-btn primary" @click="openCreateDialog">
-          ➕ 新建渠道
-        </button>
+    <!-- 紧凑工具栏 -->
+    <div class="compact-toolbar pop-card no-hover">
+      <!-- 左侧：视图切换 + 搜索 + 筛选 -->
+      <div class="toolbar-left">
+        <div class="btn-group">
+          <button
+            class="group-btn"
+            :class="{ active: viewMode === 'list' }"
+            @click="viewMode = 'list'"
+            title="列表视图"
+          >
+            📋
+          </button>
+          <button
+            class="group-btn"
+            :class="{ active: viewMode === 'card' }"
+            @click="viewMode = 'card'"
+            title="卡片视图"
+          >
+            🎴
+          </button>
+        </div>
+        <div class="filter-divider"></div>
+        <!-- 搜索框 -->
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+          <input
+            v-model="searchQuery"
+            class="pop-input small search-input"
+            placeholder="搜索渠道..."
+          />
+          <button
+            v-if="searchQuery"
+            class="search-clear"
+            @click="searchQuery = ''"
+            title="清除搜索"
+          >✕</button>
+        </div>
+        <div class="filter-divider"></div>
         <ConnectorFilter
           v-model="selectedConnectors"
           :connectors="connectors"
           :get-icon-url="getConnectorIconUrlByDef"
         />
-        <TagFilter
+        <TagDropdown
           v-model="selectedTags"
           :all-tags="allTags"
           :preset-tags="presetTags"
-          :show-input="false"
         />
         <SortSelect v-model="sortBy" />
+        <span class="result-count">共{{ filteredChannels.length }}个渠道</span>
       </div>
-      <div class="header-right">
-        <div class="search-wrapper">
-          <input
-            v-model="searchQuery"
-            type="text"
-            class="pop-input search-input"
-            placeholder="🔍 搜索渠道..."
-          />
-        </div>
-        <ViewModeSwitch v-model="viewMode" />
+      <!-- 右侧：操作按钮 -->
+      <div class="toolbar-right">
+        <button class="pop-btn small" @click="fetchData" title="刷新">🔄</button>
+        <button class="pop-btn small primary" @click="openCreateDialog">
+          ➕ 新建
+        </button>
       </div>
     </div>
 
-    <div class="view-content pop-scrollbar">
-      <LoadingState v-if="loading" />
+    <LoadingState v-if="loading" />
 
-      <!-- 卡片视图 -->
-      <div v-else-if="viewMode === 'card'" class="card-grid">
-        <div
-          v-for="channel in filteredChannels"
-          :key="channel.id"
-          class="channel-card pop-card"
-          :class="{ 'disabled': !channel.enabled }"
-          @click="openEditDialog(channel)"
-        >
-          <div class="card-header">
-            <div class="header-main">
-              <div class="channel-title">
-                <div class="connector-logo">
-                  <img
-                    v-if="getConnectorIconUrl(channel.connectorId)"
-                    :src="getConnectorIconUrl(channel.connectorId)"
-                    :alt="getConnectorName(channel.connectorId)"
-                  />
-                  <span v-else>🔗</span>
-                </div>
-                <div class="channel-info">
-                  <div class="channel-name">{{ channel.name }}</div>
-                  <div class="connector-name">{{ getConnectorName(channel.connectorId) }}</div>
-                </div>
+    <!-- 卡片视图 -->
+    <div v-else-if="viewMode === 'card'" class="card-grid pop-scrollbar">
+      <div
+        v-for="channel in filteredChannels"
+        :key="channel.id"
+        class="channel-card pop-card"
+        :class="{ 'disabled': !channel.enabled }"
+        @click="openEditDialog(channel)"
+      >
+        <div class="card-header">
+          <div class="header-main">
+            <div class="channel-title">
+              <div class="connector-logo">
+                <img
+                  v-if="getConnectorIconUrl(channel.connectorId)"
+                  :src="getConnectorIconUrl(channel.connectorId)"
+                  :alt="getConnectorName(channel.connectorId)"
+                />
+                <span v-else>🔗</span>
               </div>
-              <label class="toggle-switch" @click.stop>
-                <input type="checkbox" v-model="channel.enabled" @change="toggleEnable(channel)" />
-                <span class="toggle-slider"></span>
-              </label>
+              <div class="channel-info">
+                <div class="channel-name">{{ channel.name }}</div>
+                <div class="connector-name">{{ getConnectorName(channel.connectorId) }}</div>
+              </div>
             </div>
-            <div class="header-meta">
-              <span
-                class="speaker-id-badge"
-                title="点击复制 Speaker ID"
-                @click.stop="copySpeakerId(channel.id)"
-              >
-                🎤 {{ getSpeakerId(channel.id) }}
+            <label class="toggle-switch" @click.stop>
+              <input type="checkbox" v-model="channel.enabled" @change="toggleEnable(channel)" />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="header-meta">
+            <span
+              class="speaker-id-badge"
+              title="点击复制 Speaker ID"
+              @click.stop="copySpeakerId(channel.id)"
+            >
+              🎤 {{ getSpeakerId(channel.id) }}
+            </span>
+            <!-- 中间件字段（如费用）显示在标题旁 -->
+            <template v-for="field in middlewareCardFields" :key="`mw-${field.key}`">
+              <span class="cost-badge" v-if="field.key === 'cost' && getCardFieldValue(channel, field)">
+                {{ formatFieldValue(getCardFieldValue(channel, field), field.format, getCurrencySuffix(channel, field)) }}
               </span>
-              <!-- 中间件字段（如费用）显示在标题旁 -->
-              <template v-for="field in middlewareCardFields" :key="`mw-${field.key}`">
-                <span class="cost-badge" v-if="field.key === 'cost' && getCardFieldValue(channel, field)">
-                  {{ formatFieldValue(getCardFieldValue(channel, field), field.format, getCurrencySuffix(channel, field)) }}
-                </span>
-              </template>
-            </div>
-          </div>
-
-          <div class="card-body">
-            <!-- 配置字段列表 -->
-            <div class="field-list" v-if="getCardFields(channel).length">
-              <div v-for="field in getCardFields(channel)" :key="field.key" class="field-item">
-                <span class="field-label">{{ field.label }}</span>
-                <span class="field-value">{{ formatCardFieldValue(channel, field) }}</span>
-              </div>
-            </div>
-
-            <!-- 标签 -->
-            <div class="tags-list" v-if="channel.tags && channel.tags.length">
-              <span v-for="tag in channel.tags" :key="tag" class="tag-pill">{{ tag }}</span>
-            </div>
-          </div>
-
-          <div class="card-footer" @click.stop>
-            <button class="pop-btn small" @click="copyChannel(channel)">
-              📋 复制
-            </button>
-            <div class="spacer"></div>
-            <button class="pop-btn small danger" @click="confirmDelete(channel)">
-              🗑️ 删除
-            </button>
+            </template>
           </div>
         </div>
 
-        <!-- 空状态 -->
-        <div v-if="filteredChannels.length === 0 && !loading" class="empty-state">
-          <div class="empty-icon">📭</div>
-          <div class="empty-text" v-if="channels.length === 0">还没有创建任何渠道</div>
-          <div class="empty-text" v-else>没有找到匹配的渠道</div>
-          <button v-if="channels.length === 0" class="pop-btn primary" @click="openCreateDialog">
-            创建第一个渠道
+        <div class="card-body">
+          <!-- 配置字段列表 -->
+          <div class="field-list" v-if="getCardFields(channel).length">
+            <div v-for="field in getCardFields(channel)" :key="field.key" class="field-item">
+              <span class="field-label">{{ field.label }}</span>
+              <span class="field-value">{{ formatCardFieldValue(channel, field) }}</span>
+            </div>
+          </div>
+
+          <!-- 标签 -->
+          <div class="tags-list" v-if="channel.tags && channel.tags.length">
+            <span v-for="tag in channel.tags" :key="tag" class="tag-pill">{{ tag }}</span>
+          </div>
+        </div>
+
+        <div class="card-footer" @click.stop>
+          <button class="pop-btn small" @click="copyChannel(channel)">
+            📋 复制
           </button>
-          <button v-else class="pop-btn" @click="clearFilters">
-            清除筛选条件
+          <div class="spacer"></div>
+          <button class="pop-btn small danger" @click="confirmDelete(channel)">
+            🗑️ 删除
           </button>
         </div>
       </div>
 
-      <!-- 列表视图 -->
-      <div v-else class="table-container pop-card">
+      <!-- 空状态 -->
+      <div v-if="filteredChannels.length === 0 && !loading" class="empty-state">
+        <div class="empty-icon">📭</div>
+        <div class="empty-text" v-if="channels.length === 0">还没有创建任何渠道</div>
+        <div class="empty-text" v-else>没有找到匹配的渠道</div>
+        <button v-if="channels.length === 0" class="pop-btn primary" @click="openCreateDialog">
+          创建第一个渠道
+        </button>
+        <button v-else class="pop-btn" @click="clearFilters">
+          清除筛选条件
+        </button>
+      </div>
+    </div>
+
+    <!-- 列表视图 -->
+    <div v-else class="table-container pop-card pop-scrollbar">
         <table class="pop-table">
           <thead>
             <tr>
@@ -187,7 +216,6 @@
           </tbody>
         </table>
       </div>
-    </div>
 
     <!-- 编辑/创建对话框 -->
     <ChannelConfigDialog
@@ -202,12 +230,13 @@
 import { ref, computed, onMounted } from 'vue'
 import { ChannelConfig, ConfigField, ConnectorDefinition, CardField } from '../types'
 import { channelApi, connectorApi, middlewareApi } from '../api'
-import TagFilter from './TagFilter.vue'
+import TagDropdown from './TagDropdown.vue'
 import ConnectorFilter from './ConnectorFilter.vue'
 import SortSelect, { type SortValue } from './SortSelect.vue'
-import ViewModeSwitch, { type ViewMode } from './ViewModeSwitch.vue'
 import ChannelConfigDialog from './ChannelConfigDialog.vue'
 import LoadingState from './LoadingState.vue'
+
+type ViewMode = 'list' | 'card'
 
 // 预置标签
 const presetTags = ['text2img', 'img2img', 'NSFW']
@@ -223,7 +252,7 @@ const dialogVisible = ref(false)
 const editingChannel = ref<ChannelConfig | null>(null)
 const selectedTags = ref<string[]>([])
 const selectedConnectors = ref<string[]>([])
-const sortBy = ref<SortValue>('default')
+const sortBy = ref<SortValue>('id-asc')
 const searchQuery = ref('')
 
 // 从所有渠道中提取标签
@@ -267,22 +296,24 @@ const filteredChannels = computed(() => {
   }
 
   // 4. 排序
-  if (sortBy.value !== 'default') {
-    result = [...result].sort((a, b) => {
-      switch (sortBy.value) {
-        case 'name-asc':
-          return a.name.localeCompare(b.name, 'zh-CN')
-        case 'name-desc':
-          return b.name.localeCompare(a.name, 'zh-CN')
-        case 'enabled-first':
-          return (b.enabled ? 1 : 0) - (a.enabled ? 1 : 0)
-        case 'disabled-first':
-          return (a.enabled ? 1 : 0) - (b.enabled ? 1 : 0)
-        default:
-          return 0
-      }
-    })
-  }
+  result = [...result].sort((a, b) => {
+    switch (sortBy.value) {
+      case 'id-asc':
+        return a.id - b.id
+      case 'id-desc':
+        return b.id - a.id
+      case 'name-asc':
+        return a.name.localeCompare(b.name, 'zh-CN')
+      case 'name-desc':
+        return b.name.localeCompare(a.name, 'zh-CN')
+      case 'enabled-first':
+        return (b.enabled ? 1 : 0) - (a.enabled ? 1 : 0)
+      case 'disabled-first':
+        return (a.enabled ? 1 : 0) - (b.enabled ? 1 : 0)
+      default:
+        return 0
+    }
+  })
 
   return result
 })
@@ -557,63 +588,123 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  overflow: hidden; /* 视图本身不滚动 */
+  gap: 16px;
+  overflow: hidden;
 }
 
-.view-header {
+/* ============ 紧凑工具栏 ============ */
+.compact-toolbar {
   flex-shrink: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
-  padding: 0 0.25rem; /* 与 view-content 对齐 */
-  flex-wrap: wrap;
-  gap: 1rem;
+  padding: 12px 16px;
+  gap: 12px;
 }
 
-.header-left {
+.toolbar-left {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
-.header-right {
+.toolbar-right {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 8px;
 }
 
-.view-content {
-  flex: 1 1 0;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 0.25rem;
-  /* 隐藏式滚动条 */
-  scrollbar-width: thin;
-  scrollbar-color: transparent transparent;
+.filter-divider {
+  width: 2px;
+  height: 20px;
+  background: var(--ml-border-color);
+  border-radius: 1px;
 }
 
-.view-content:hover {
-  scrollbar-color: var(--ml-border-color) transparent;
+.result-count {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ml-text-muted);
+  white-space: nowrap;
 }
 
-.view-content::-webkit-scrollbar {
-  width: 6px;
+/* ============ 搜索框 ============ */
+.search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
 }
 
-.view-content::-webkit-scrollbar-track {
+.search-icon {
+  position: absolute;
+  left: 10px;
+  font-size: 14px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.search-input {
+  padding-left: 32px !important;
+  padding-right: 28px !important;
+  width: 180px;
+}
+
+.search-clear {
+  position: absolute;
+  right: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: var(--ml-bg-alt);
+  color: var(--ml-text-muted);
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 10px;
+  transition: all 0.15s;
+}
+
+.search-clear:hover {
+  background: var(--ml-danger);
+  color: white;
+}
+
+/* ============ 按钮组 ============ */
+.btn-group {
+  display: flex;
+  background: var(--ml-bg-alt);
+  border: var(--ml-border);
+  border-radius: var(--ml-radius);
+  padding: 4px;
+  gap: 4px;
+}
+
+.group-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  border: none;
   background: transparent;
+  color: var(--ml-text-muted);
+  cursor: pointer;
+  border-radius: calc(var(--ml-radius) - 4px);
+  font-size: 14px;
+  transition: all 0.15s;
 }
 
-.view-content::-webkit-scrollbar-thumb {
-  background-color: transparent;
-  border-radius: 3px;
+.group-btn:hover {
+  color: var(--ml-text);
+  background: var(--ml-bg);
 }
 
-.view-content:hover::-webkit-scrollbar-thumb {
-  background-color: var(--ml-border-color);
+.group-btn.active {
+  color: var(--ml-text);
+  background: var(--ml-primary);
+  box-shadow: var(--ml-shadow-sm);
 }
 
 /* ========== 搜索框样式 ========== */
@@ -623,9 +714,23 @@ onMounted(() => {
 
 /* ========== 卡片网格 ========== */
 .card-grid {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 1rem;
+  gap: 16px;
+  align-content: start;
+  padding: 0 16px 16px 16px;
+  margin: 0 -16px;
+}
+
+/* ========== 列表容器 ========== */
+.table-container {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
 }
 
 /* ========== 渠道卡片 ========== */

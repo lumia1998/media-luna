@@ -1,26 +1,9 @@
 <template>
   <div class="tasks-view">
-    <!-- 工具栏 -->
-    <div class="tasks-toolbar pop-card no-hover">
+    <!-- 紧凑工具栏 -->
+    <div class="compact-toolbar pop-card no-hover">
       <div class="toolbar-left">
-        <!-- 时间范围切换 -->
-        <div class="btn-group">
-          <button
-            class="group-btn"
-            :class="{ active: timeRange === 'all' }"
-            @click="setTimeRange('all')"
-          >
-            全部
-          </button>
-          <button
-            class="group-btn"
-            :class="{ active: timeRange === 'today' }"
-            @click="setTimeRange('today')"
-          >
-            今日
-          </button>
-        </div>
-        <!-- 视图切换 -->
+        <!-- 视图切换 + 时间范围 -->
         <div class="btn-group">
           <button
             class="group-btn"
@@ -35,16 +18,92 @@
             title="画廊视图"
           >🎴</button>
         </div>
+        <div class="filter-divider"></div>
+        <!-- 搜索框 -->
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+          <input
+            v-model="filter.uid"
+            class="pop-input small search-input"
+            placeholder="用户 UID..."
+            @keyup.enter="handleFilterChange"
+          />
+          <button
+            v-if="filter.uid"
+            class="search-clear"
+            @click="filter.uid = ''; handleFilterChange()"
+            title="清除"
+          >✕</button>
+        </div>
+        <div class="filter-divider"></div>
+        <!-- 时间范围 -->
+        <div class="btn-group">
+          <button
+            class="group-btn"
+            :class="{ active: timeRange === 'all' }"
+            @click="setTimeRange('all')"
+          >全部</button>
+          <button
+            class="group-btn"
+            :class="{ active: timeRange === 'today' }"
+            @click="setTimeRange('today')"
+          >今日</button>
+        </div>
+        <!-- 筛选器 -->
+        <select
+          v-model="filter.status"
+          class="pop-select small"
+          @change="handleFilterChange"
+        >
+          <option value="">状态</option>
+          <option value="pending">等待中</option>
+          <option value="processing">处理中</option>
+          <option value="success">成功</option>
+          <option value="failed">失败</option>
+        </select>
+        <select
+          v-model="filter.channelId"
+          class="pop-select small"
+          @change="handleFilterChange"
+        >
+          <option :value="undefined">渠道</option>
+          <option
+            v-for="ch in channels"
+            :key="ch.id"
+            :value="ch.id"
+          >{{ ch.name || `渠道 ${ch.id}` }}</option>
+        </select>
+        <select
+          v-model="filter.mediaType"
+          class="pop-select small"
+          @change="handleFilterChange"
+        >
+          <option value="">类型</option>
+          <option value="image">图片</option>
+          <option value="video">视频</option>
+          <option value="audio">音频</option>
+        </select>
+        <span class="result-count" v-if="total > 0">共 {{ total }} 条</span>
       </div>
       <div class="toolbar-right">
-        <button class="pop-btn small" @click="fetchData">
-          🔄 刷新
-        </button>
+        <!-- 批量操作按钮 -->
+        <template v-if="selectedIds.size > 0">
+          <span class="batch-info">已选 {{ selectedIds.size }} 项</span>
+          <button class="pop-btn small danger" @click="openBatchDeleteDialog">
+            🗑️ 删除
+          </button>
+          <button class="pop-btn small" @click="clearSelection">
+            取消
+          </button>
+          <div class="filter-divider"></div>
+        </template>
+        <button class="pop-btn small" @click="fetchData" title="刷新">🔄</button>
         <button class="pop-btn small danger" @click="openCleanupDialog">
           🗑️ 清理
         </button>
       </div>
     </div>
+
     <div class="stats-grid" v-if="stats && viewMode === 'list'">
       <div class="stat-card pop-card no-hover">
         <div class="stat-icon total">📋</div>
@@ -79,83 +138,6 @@
         <div class="stat-content">
           <div class="stat-value">{{ stats.successRate }}</div>
           <div class="stat-label">成功率</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 筛选栏 (固定) -->
-    <div class="filter-bar pop-card no-hover">
-      <div class="filter-group">
-        <!-- 批量选择控制 -->
-        <div class="batch-select-control" v-if="viewMode === 'list'">
-          <label class="checkbox-wrapper">
-            <input
-              type="checkbox"
-              :checked="isAllSelected"
-              :indeterminate="isIndeterminate"
-              @change="toggleSelectAll(($event.target as HTMLInputElement).checked)"
-            />
-            <span class="checkbox-mark"></span>
-          </label>
-        </div>
-        <select
-          v-model="filter.status"
-          class="pop-select small"
-          @change="handleFilterChange"
-        >
-          <option value="">所有状态</option>
-          <option value="pending">等待中</option>
-          <option value="processing">处理中</option>
-          <option value="success">成功</option>
-          <option value="failed">失败</option>
-        </select>
-        <select
-          v-model="filter.channelId"
-          class="pop-select small"
-          @change="handleFilterChange"
-        >
-          <option :value="undefined">所有渠道</option>
-          <option
-            v-for="ch in channels"
-            :key="ch.id"
-            :value="ch.id"
-          >{{ ch.name || `渠道 ${ch.id}` }}</option>
-        </select>
-        <select
-          v-model="filter.mediaType"
-          class="pop-select small"
-          @change="handleFilterChange"
-        >
-          <option value="">所有类型</option>
-          <option value="image">图片</option>
-          <option value="video">视频</option>
-          <option value="audio">音频</option>
-        </select>
-        <div class="search-input-wrapper">
-          <input
-            v-model="filter.uid"
-            class="pop-input small"
-            placeholder="用户 UID"
-            @keyup.enter="handleFilterChange"
-          />
-          <button class="search-btn" @click="handleFilterChange" title="搜索">🔍</button>
-        </div>
-      </div>
-      <div class="filter-right">
-        <!-- 批量操作按钮 -->
-        <Transition name="fade">
-          <div class="batch-actions" v-if="selectedIds.size > 0">
-            <span class="selected-count">已选 {{ selectedIds.size }} 项</span>
-            <button class="pop-btn small danger" @click="openBatchDeleteDialog">
-              🗑️ 删除选中
-            </button>
-            <button class="pop-btn small" @click="clearSelection">
-              取消选择
-            </button>
-          </div>
-        </Transition>
-        <div class="pagination-info" v-if="total > 0 && selectedIds.size === 0">
-          共 {{ total }} 条记录
         </div>
       </div>
     </div>
@@ -922,30 +904,95 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  gap: 8px; /* 减小间距 */
-  overflow: hidden; /* 视图本身不滚动 */
+  gap: 4px;
+  overflow: hidden;
 }
 
-/* ============ 工具栏 ============ */
-.tasks-toolbar {
+/* ============ 紧凑工具栏 ============ */
+.compact-toolbar {
   flex-shrink: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 12px; /* 减小内边距 */
-  gap: 8px;
+  padding: 12px 16px;
+  gap: 12px;
 }
 
 .toolbar-left {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .toolbar-right {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.filter-divider {
+  width: 2px;
+  height: 20px;
+  background: var(--ml-border-color);
+  border-radius: 1px;
+}
+
+.result-count {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ml-text-muted);
+  white-space: nowrap;
+}
+
+.batch-info {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ml-primary-dark);
+  white-space: nowrap;
+}
+
+/* ============ 搜索框 ============ */
+.search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-icon {
+  position: absolute;
+  left: 10px;
+  font-size: 14px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.search-input {
+  padding-left: 32px !important;
+  padding-right: 28px !important;
+  width: 160px;
+}
+
+.search-clear {
+  position: absolute;
+  right: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: var(--ml-bg-alt);
+  color: var(--ml-text-muted);
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 10px;
+  transition: all 0.15s;
+}
+
+.search-clear:hover {
+  background: var(--ml-danger);
+  color: white;
 }
 
 /* 按钮组 */
@@ -988,25 +1035,26 @@ onMounted(() => {
 .stats-grid {
   flex-shrink: 0;
   display: grid;
-  grid-template-columns: repeat(5, 1fr); /* 固定5列 */
-  gap: 8px;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+  margin-bottom: 0 !important;
 }
 
 .stat-card {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px; /* 减小内边距 */
+  gap: 12px;
+  padding: 12px 16px;
 }
 
 .stat-icon {
-  width: 32px; /* 减小图标尺寸 */
-  height: 32px;
-  border-radius: 8px;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px; /* 减小字体 */
+  font-size: 18px;
   flex-shrink: 0;
   border: 2px solid var(--ml-border-color);
 }
@@ -1023,10 +1071,10 @@ onMounted(() => {
 }
 
 .stat-value {
-  font-size: 18px; /* 减小数值字体 */
+  font-size: 20px;
   font-weight: 800;
   color: var(--ml-text);
-  line-height: 1;
+  line-height: 1.2;
 }
 
 .stat-value.success { color: var(--ml-success); }
@@ -1034,85 +1082,12 @@ onMounted(() => {
 .stat-value.pending { color: var(--ml-warning); }
 
 .stat-label {
-  font-size: 10px; /* 减小标签字体 */
+  font-size: 11px;
   font-weight: 600;
   color: var(--ml-text-muted);
   margin-top: 2px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-}
-
-/* ============ Filter Bar ============ */
-.filter-bar {
-  flex-shrink: 0;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 12px; /* 减小内边距 */
-  gap: 8px;
-}
-
-.filter-group {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.filter-right {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.pagination-info {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--ml-text-muted);
-}
-
-.batch-select-control {
-  display: flex;
-  align-items: center;
-  padding-right: 12px;
-  border-right: 2px solid var(--ml-border-color);
-  margin-right: 4px;
-}
-
-.batch-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.selected-count {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--ml-primary-dark);
-}
-
-.search-input-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.search-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  font-size: 16px;
-  border-radius: 8px;
-  transition: all 0.15s;
-}
-
-.search-btn:hover {
-  background: var(--ml-primary-light);
 }
 
 /* ============ 内容区域 ============ */

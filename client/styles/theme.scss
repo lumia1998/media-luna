@@ -387,6 +387,8 @@
   resize: vertical;
   min-height: 80px;
   line-height: 1.5;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .pop-select {

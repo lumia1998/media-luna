@@ -90,6 +90,39 @@
                   </div>
                 </div>
 
+                <!-- 参考图（用户输入的图片） -->
+                <div class="info-block" v-if="inputImages.length > 0">
+                  <div class="block-header">
+                    <span>参考图</span>
+                    <span class="ref-count">{{ inputImages.length }}张</span>
+                  </div>
+                  <div class="reference-images">
+                    <div
+                      v-for="(img, idx) in inputImages"
+                      :key="idx"
+                      class="reference-thumb"
+                      @click="openUrl(img.url)"
+                      :title="img.filename"
+                    >
+                      <img :src="img.url" :alt="img.filename" />
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 使用的预设 -->
+                <div class="info-block" v-if="presetInfo">
+                  <div class="block-header">
+                    <span>使用预设</span>
+                  </div>
+                  <div class="preset-tag">
+                    <span class="preset-icon">🎨</span>
+                    <span class="preset-name">{{ presetInfo.name }}</span>
+                    <span v-if="presetInfo.referenceCount > 0" class="preset-ref">
+                      +{{ presetInfo.referenceCount }}图
+                    </span>
+                  </div>
+                </div>
+
                 <!-- 提示词 -->
                 <div class="info-block">
                   <div class="block-header">
@@ -129,14 +162,16 @@
               </div>
 
               <div class="sidebar-footer">
-                <button class="pop-btn primary" @click="openOriginal">
-                  🔗 {{ currentMedia?.kind === 'audio' ? '打开音频' : currentMedia?.kind === 'video' ? '打开视频' : '查看原图' }}
-                </button>
-                <button class="pop-btn" @click="downloadMedia">
-                  💾 下载
-                </button>
-                <button v-if="canUpload" class="pop-btn" @click="handleUpload" title="上传到云端">
-                  ⬆️
+                <div class="footer-row">
+                  <button class="pop-btn primary" @click="openOriginal">
+                    🔗 {{ currentMedia?.kind === 'audio' ? '音频' : currentMedia?.kind === 'video' ? '视频' : '原图' }}
+                  </button>
+                  <button class="pop-btn" @click="downloadMedia">
+                    💾 下载
+                  </button>
+                </div>
+                <button v-if="canSaveAsPreset" class="pop-btn full-width" @click="openSaveAsPreset">
+                  🎨 保存为预设
                 </button>
               </div>
             </div>
@@ -145,17 +180,11 @@
       </div>
     </transition>
 
-    <!-- 上传对话框 -->
-    <UploadDialog
-      v-if="taskData"
-      v-model="uploadDialogVisible"
-      mode="task"
-      :task-data="{
-        taskId: taskData.id,
-        assetIndex: currentIndex,
-        imageUrl: currentMedia?.url || '',
-        prompt: displayPrompt
-      }"
+    <!-- 保存为预设对话框 -->
+    <PresetDialog
+      v-model:visible="presetDialogVisible"
+      :prefill="presetPrefill"
+      @saved="handlePresetSaved"
     />
   </teleport>
 </template>
@@ -165,7 +194,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { taskApi, userApi } from '../api'
 import type { TaskData, AssetKind } from '../types'
 import AudioPlayer from './AudioPlayer.vue'
-import UploadDialog from './UploadDialog.vue'
+import PresetDialog from './PresetDialog.vue'
 
 /** 媒体项 */
 interface MediaItem {
@@ -270,6 +299,36 @@ const displayCreatedAt = computed(() => {
   return taskData.value?.startTime || null
 })
 
+// 输入参考图（用户上传的图片）
+interface InputImage {
+  url: string
+  filename: string
+}
+
+const inputImages = computed<InputImage[]>(() => {
+  if (!taskData.value) return []
+  const logs = taskData.value.middlewareLogs as any
+  const storageInput = logs?.['storage-input']
+  if (!storageInput?.logs?.length) return []
+  return storageInput.logs.map((log: any) => ({
+    url: log.url as string,
+    filename: (log.filename || '参考图') as string
+  }))
+})
+
+// 预设信息
+const presetInfo = computed(() => {
+  if (!taskData.value) return null
+  const logs = taskData.value.middlewareLogs as any
+  const preset = logs?.preset
+  if (!preset?.presetName) return null
+  return {
+    id: preset.presetId,
+    name: preset.presetName,
+    referenceCount: preset.referenceImagesInjected || 0
+  }
+})
+
 // 获取任务数据
 const fetchTaskData = async () => {
   if (!props.taskId) {
@@ -356,6 +415,10 @@ const openOriginal = () => {
   }
 }
 
+const openUrl = (url: string) => {
+  window.open(url, '_blank')
+}
+
 const downloadMedia = async () => {
   if (!currentMedia.value?.url) return
 
@@ -416,13 +479,39 @@ onUnmounted(() => {
   document.body.style.overflow = ''
 })
 
-// 上传功能（仅在 taskId 模式且当前是图片时可用）
-const uploadDialogVisible = ref(false)
-const canUpload = computed(() => isTaskIdMode.value && currentMedia.value?.kind === 'image' && taskData.value)
+// ============ 保存为预设功能 ============
+const presetDialogVisible = ref(false)
+const presetPrefill = ref<{
+  name?: string
+  promptTemplate?: string
+  thumbnail?: string
+  referenceImages?: string[]
+}>({})
 
-const handleUpload = () => {
-  if (!canUpload.value) return
-  uploadDialogVisible.value = true
+// 是否可以保存为预设（需要有图片和提示词）
+const canSaveAsPreset = computed(() => {
+  return currentMedia.value?.kind === 'image' && displayPrompt.value
+})
+
+const openSaveAsPreset = () => {
+  if (!canSaveAsPreset.value) return
+
+  // 收集参考图
+  const refImages: string[] = inputImages.value.map(img => img.url)
+
+  // 预填充数据
+  presetPrefill.value = {
+    name: '',
+    promptTemplate: displayPrompt.value,
+    thumbnail: currentMedia.value?.url,
+    referenceImages: refImages
+  }
+
+  presetDialogVisible.value = true
+}
+
+const handlePresetSaved = () => {
+  alert('预设已保存')
 }
 </script>
 
@@ -434,8 +523,9 @@ const handleUpload = () => {
 .lightbox-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(69, 26, 3, 0.9);
-  backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   z-index: 9999;
   display: flex;
   align-items: center;
@@ -762,17 +852,92 @@ const handleUpload = () => {
   font-weight: 600;
 }
 
+/* 参考图 */
+.ref-count {
+  font-size: 0.7rem;
+  color: var(--ml-text-muted);
+  font-weight: 600;
+}
+
+.reference-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.reference-thumb {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--ml-radius);
+  border: 2px solid var(--ml-border-color);
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: var(--ml-cream);
+}
+
+.reference-thumb:hover {
+  border-color: var(--ml-primary-dark);
+  transform: scale(1.05);
+  box-shadow: 2px 2px 0 var(--ml-border-color);
+}
+
+.reference-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 预设标签 */
+.preset-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: var(--ml-cream);
+  border: 2px solid var(--ml-border-color);
+  border-radius: var(--ml-radius);
+}
+
+.preset-icon {
+  font-size: 1rem;
+}
+
+.preset-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ml-text);
+}
+
+.preset-ref {
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  background: var(--ml-primary);
+  border-radius: 8px;
+  font-weight: 700;
+  color: var(--ml-text);
+}
+
 .sidebar-footer {
   padding: 12px 16px;
   border-top: 2px solid var(--ml-border-color);
   display: flex;
+  flex-direction: column;
   gap: 8px;
-  flex-wrap: wrap;
 }
 
-.sidebar-footer .pop-btn {
+.footer-row {
+  display: flex;
+  gap: 8px;
+}
+
+.footer-row .pop-btn {
   flex: 1;
   min-width: 0;
+}
+
+.sidebar-footer .pop-btn.full-width {
+  width: 100%;
 }
 
 /* 过渡动画 */

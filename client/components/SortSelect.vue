@@ -25,7 +25,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-export type SortValue = 'default' | 'name-asc' | 'name-desc' | 'enabled-first' | 'disabled-first'
+export type SortValue = 'default' | 'id-asc' | 'id-desc' | 'name-asc' | 'name-desc' | 'enabled-first' | 'disabled-first'
 
 export interface SortOption {
   value: SortValue
@@ -34,6 +34,8 @@ export interface SortOption {
 
 const sortOptions: SortOption[] = [
   { value: 'default', label: '默认排序' },
+  { value: 'id-asc', label: 'ID 升序' },
+  { value: 'id-desc', label: 'ID 降序' },
   { value: 'name-asc', label: '名称 A-Z' },
   { value: 'name-desc', label: '名称 Z-A' },
   { value: 'enabled-first', label: '启用优先' },

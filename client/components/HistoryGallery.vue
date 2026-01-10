@@ -125,11 +125,8 @@
     <!-- 媒体预览弹窗 -->
     <ImageLightbox
       v-model:visible="lightboxVisible"
-      :media="lightboxMedia"
+      :task-id="lightboxTaskId"
       :initial-index="lightboxIndex"
-      :prompt="lightboxPrompt"
-      :created-at="lightboxCreatedAt"
-      :duration="lightboxDuration"
     />
   </div>
 </template>
@@ -174,11 +171,8 @@ let refreshTimer: ReturnType<typeof setInterval> | null = null
 
 // Lightbox 状态
 const lightboxVisible = ref(false)
-const lightboxMedia = ref<MediaItem[]>([])
+const lightboxTaskId = ref<number | null>(null)
 const lightboxIndex = ref(0)
-const lightboxPrompt = ref('')
-const lightboxCreatedAt = ref<Date | undefined>()
-const lightboxDuration = ref<number | undefined>()
 
 // 检查登录状态
 const checkAuth = async () => {
@@ -280,16 +274,10 @@ const refresh = async () => {
 // 点击任务
 const handleTaskClick = (task: TaskItem) => {
   if (task.status === 'success' && task.media.length > 0) {
-    // 支持图片、视频、音频预览
-    const previewableMedia = task.media.filter(m => ['image', 'video', 'audio'].includes(m.kind))
-    if (previewableMedia.length > 0) {
-      lightboxMedia.value = previewableMedia
-      lightboxIndex.value = 0
-      lightboxPrompt.value = task.prompt
-      lightboxCreatedAt.value = task.createdAt
-      lightboxDuration.value = task.duration
-      lightboxVisible.value = true
-    }
+    // 使用 taskId 模式打开 lightbox，这样可以获取完整数据（包括参考图等）
+    lightboxTaskId.value = task.id
+    lightboxIndex.value = 0
+    lightboxVisible.value = true
     // 同时触发 select 事件用于填充提示词
     emit('select', task)
   }
